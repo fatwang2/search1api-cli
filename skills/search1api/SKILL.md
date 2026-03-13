@@ -161,5 +161,4 @@ Shows remaining API credits.
 
 ## References
 
-- [Full parameter documentation](reference/api-parameters.md) — read when you need detailed parameter info
-- [More usage examples](reference/examples.md) — read for additional patterns
+- [Usage examples](reference/examples.md) — read for additional patterns
