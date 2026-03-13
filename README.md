@@ -124,6 +124,24 @@ s1 config set-key <key>   # Save API key
 s1 config show             # Show current config
 ```
 
+## Claude Code Skill
+
+This repo also includes a [Claude Code](https://claude.com/claude-code) skill that lets Claude automatically use `s1` commands when you ask it to search the web, read URLs, check news, etc.
+
+Install the skill:
+
+```bash
+npx skills add fatwang2/search1api-cli
+```
+
+Once installed, you can ask Claude things like:
+- "search for the latest AI news"
+- "what does this link say? https://example.com"
+- "what's trending on GitHub?"
+- "research quantum computing thoroughly"
+
+Claude will automatically use the appropriate `s1` command and summarize the results.
+
 ## JSON Output
 
 All commands support `--json` flag to output raw JSON, useful for piping and scripting:
