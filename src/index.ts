@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 
+import { createRequire } from "node:module";
+import updateNotifier from "update-notifier";
 import { Command } from "commander";
 import { registerSearchCommand } from "./commands/search.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json");
+updateNotifier({ pkg }).notify();
 import { registerNewsCommand } from "./commands/news.js";
 import { registerCrawlCommand } from "./commands/crawl.js";
 import { registerSitemapCommand } from "./commands/sitemap.js";
@@ -15,7 +21,7 @@ const program = new Command();
 program
   .name("search1api")
   .description("CLI for Search1API - search, news, crawl, sitemap, reasoning & trending")
-  .version("1.0.0");
+  .version(pkg.version);
 
 registerSearchCommand(program);
 registerNewsCommand(program);
