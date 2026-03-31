@@ -7,7 +7,7 @@ Command-line interface for [Search1API](https://search1api.com) — web search, 
 ### Quick install (no Node.js required)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fatwang2/search1api-cli/master/install.sh | bash
+curl -fsSL https://cli.search1api.com/install.sh | bash
 ```
 
 This downloads a standalone binary and installs it as `s1`.
