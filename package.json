@@ -11,6 +11,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "build:binary": "bun run scripts/build-binary.ts",
+    "build:binary:cross": "bun run scripts/build-binary.ts --cross",
     "prepublishOnly": "npm run build",
     "postinstall": "node scripts/postinstall.js"
   },

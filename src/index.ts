@@ -1,13 +1,21 @@
 #!/usr/bin/env node
 
-import { createRequire } from "node:module";
 import updateNotifier from "update-notifier";
 import chalk from "chalk";
 import { Command } from "commander";
 import { registerSearchCommand } from "./commands/search.js";
 
-const require = createRequire(import.meta.url);
-const pkg = require("../package.json");
+declare const __PKG_VERSION__: string | undefined;
+declare const __PKG_NAME__: string | undefined;
+
+let pkg: { name: string; version: string };
+if (typeof __PKG_VERSION__ !== "undefined") {
+  pkg = { name: __PKG_NAME__!, version: __PKG_VERSION__! };
+} else {
+  const { createRequire } = await import("node:module");
+  const require = createRequire(import.meta.url);
+  pkg = require("../package.json");
+}
 updateNotifier({ pkg }).notify();
 import { registerNewsCommand } from "./commands/news.js";
 import { registerCrawlCommand } from "./commands/crawl.js";

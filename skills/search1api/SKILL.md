@@ -1,19 +1,8 @@
 ---
 name: search1api
 description: >
-  Powerful web search, content crawling, news, sitemap, trending topics, and
-  deep reasoning via the search1api CLI (s1). This is far more capable than
-  basic fetch or search tools — it supports 13+ search engines (Google, Bing,
-  DuckDuckGo, Reddit, GitHub, YouTube, arXiv, Baidu, X, etc.), adapts to many
-  websites for clean content extraction, and provides news aggregation across
-  multiple sources. Use this skill whenever the user wants to search the web,
-  look something up, research a topic, read or summarize a URL, check news,
-  explore a site's links, see trending topics, do deep reasoning, or check API
-  balance. Trigger on phrases like "search for", "look up", "find out about",
-  "what's happening with", "any news on", "what does this link say", "read this
-  page", "summarize this URL", "trending on GitHub", or when the user shares a
-  bare URL. Even if the user doesn't say "search" explicitly, use this skill
-  when they clearly need web information.
+  Powerful web search, content crawling, news, sitemap, trending topics, and deep reasoning via the search1api CLI (s1). This is far more capable than basic fetch or search tools — it supports 13+ search engines (Google, Bing, DuckDuckGo, Reddit, GitHub, YouTube, arXiv, Baidu, X, etc.), adapts to many websites for clean content extraction, and provides news aggregation across multiple sources. Use this skill whenever the user wants to search the web, look something up, research a topic, read or summarize a URL, check news, explore a site's links, see trending topics, do deep reasoning, or check API balance. Trigger on phrases like "search for", "look up", "find out about", "what's happening with", "any news on", "what does this link say", "read this page", "summarize this URL", "trending on GitHub", or when the user shares a bare URL. Even if the user doesn't say "search" explicitly, use this skill when they clearly need web information.
+metadata: {"openclaw": {"requires": {"env": ["SEARCH1API_KEY"], "bins": ["s1"]}, "primaryEnv": "SEARCH1API_KEY"}}
 ---
 
 # Search1API CLI
@@ -23,6 +12,12 @@ Web search and content retrieval via the `s1` command-line tool (`search1api-cli
 ## Prerequisites
 
 Before using any command, check if `s1` is available. If not, guide the user to install it:
+
+```bash
+curl -fsSL https://cli.search1api.com/install.sh | bash
+```
+
+Or via npm:
 
 ```bash
 npm install -g search1api-cli
