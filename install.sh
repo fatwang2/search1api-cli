@@ -80,7 +80,7 @@ if command -v "$BINARY_NAME" &>/dev/null; then
   echo "Successfully installed s1 v${VERSION}"
   echo ""
   echo "Get started:"
-  echo "  s1 config set-key <your-api-key>"
+  echo "  s1 login"
   echo "  s1 search \"your query\""
   echo ""
   echo "Get your API key at https://search1api.com"

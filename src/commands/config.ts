@@ -1,19 +1,17 @@
 import { Command } from "commander";
-import { loadConfig, saveConfig } from "../config.js";
+import { loadConfig, saveApiKey } from "../config.js";
 import chalk from "chalk";
 
 export function registerConfigCommand(program: Command): void {
   const config = program
     .command("config")
-    .description("Manage configuration");
+    .description("Manage configuration and manual API keys");
 
   config
     .command("set-key <key>")
-    .description("Set your Search1API key")
+    .description("Set your Search1API key manually")
     .action((key: string) => {
-      const cfg = loadConfig();
-      cfg.apiKey = key;
-      saveConfig(cfg);
+      saveApiKey(key);
       console.log(chalk.green("API key saved."));
     });
 

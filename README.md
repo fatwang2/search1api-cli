@@ -22,7 +22,13 @@ This installs two commands: `search1api` and `s1` (shorthand).
 
 ## Setup
 
-Set your API key (get one at [search1api.com](https://search1api.com)):
+Sign in with your browser and let the CLI save your API key automatically:
+
+```bash
+s1 login
+```
+
+Manual fallback:
 
 ```bash
 s1 config set-key <your-api-key>
@@ -125,13 +131,22 @@ Check your remaining API credits.
 s1 balance
 ```
 
+### login
+
+Authorize in your browser and save your API key automatically.
+
+```bash
+s1 login
+s1 login --no-browser
+```
+
 ### config
 
 Manage CLI configuration.
 
 ```bash
-s1 config set-key <key>   # Save API key
-s1 config show             # Show current config
+s1 config set-key <key>   # Save API key manually
+s1 config show            # Show current config
 ```
 
 ## Claude Code Skill

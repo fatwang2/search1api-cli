@@ -24,6 +24,7 @@ import { registerReasoningCommand } from "./commands/reasoning.js";
 import { registerTrendingCommand } from "./commands/trending.js";
 import { registerConfigCommand } from "./commands/config.js";
 import { registerUsageCommand } from "./commands/usage.js";
+import { registerLoginCommand } from "./commands/login.js";
 
 const program = new Command();
 
@@ -39,9 +40,9 @@ registerSitemapCommand(program);
 registerReasoningCommand(program);
 registerTrendingCommand(program);
 registerUsageCommand(program);
+registerLoginCommand(program);
 registerConfigCommand(program);
 
-// Show welcome page when no arguments
 if (process.argv.length <= 2) {
   console.log(`
   ${chalk.bold.blue("Search1API CLI")} ${chalk.dim(`v${pkg.version}`)}
@@ -56,7 +57,8 @@ if (process.argv.length <= 2) {
     ${chalk.blue("s1 balance")}                    Check remaining credits
 
   ${chalk.bold("Setup:")}
-    ${chalk.blue("s1 config set-key")} ${chalk.dim("<key>")}       Set your API key
+    ${chalk.blue("s1 login")}                      Log in with your browser
+    ${chalk.blue("s1 config set-key")} ${chalk.dim("<key>")}       Set your API key manually
     ${chalk.blue("s1 --help")}                     See all options
 
   ${chalk.dim("Get your API key at")} ${chalk.blue("https://search1api.com")}

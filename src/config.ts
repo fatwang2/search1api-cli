@@ -4,6 +4,9 @@ import { join } from "node:path";
 
 const CONFIG_DIR = join(homedir(), ".config", "search1api");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
+export const API_BASE = process.env.SEARCH1API_API_BASE ?? "https://api.search1api.com";
+export const APP_BASE = process.env.SEARCH1API_APP_BASE ?? "https://dashboard.search1api.com";
+export const CLI_LOGIN_PATH = process.env.SEARCH1API_CLI_LOGIN_PATH ?? "/cli-auth";
 
 interface Config {
   apiKey?: string;
@@ -23,7 +26,8 @@ export function getApiKey(): string {
 
   console.error(
     "Error: API key not found. Set it via:\n" +
-      "  s1 config set-key <your-api-key>\n" +
+      "  s1 login\n" +
+      "  or s1 config set-key <your-api-key>\n" +
       "  or export SEARCH1API_KEY=<your-api-key>"
   );
   process.exit(1);
@@ -43,4 +47,12 @@ export function saveConfig(config: Config): void {
   writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
-export const API_BASE = "https://api.search1api.com";
+export function saveApiKey(apiKey: string): void {
+  const config = loadConfig();
+  config.apiKey = apiKey;
+  saveConfig(config);
+}
+
+export function getConfigFilePath(): string {
+  return CONFIG_FILE;
+}
