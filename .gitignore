@@ -4,3 +4,5 @@ dist-bin/
 *.tsbuildinfo
 .env
 CLAUDE.local.md
+.agents/
+.claude/

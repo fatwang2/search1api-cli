@@ -20,6 +20,19 @@ npm install -g search1api-cli
 
 This installs two commands: `search1api` and `s1` (shorthand).
 
+## Updating
+
+```bash
+s1 update
+```
+
+`s1 update` updates you in place using whichever method you installed with:
+
+- **Binary install** — downloads the latest release for your platform and replaces the running binary (uses `sudo` automatically if needed).
+- **npm install** — prints the `npm install -g search1api-cli` command to run.
+
+`s1` also checks for new versions in the background and shows a notice when one is available.
+
 ## Setup
 
 Sign in with your browser and let the CLI save your API key automatically:
@@ -147,6 +160,15 @@ Manage CLI configuration.
 ```bash
 s1 config set-key <key>   # Save API key manually
 s1 config show            # Show current config
+```
+
+### update
+
+Update `s1` to the latest version. See [Updating](#updating).
+
+```bash
+s1 update
+s1 update --force   # reinstall even if already on the latest version
 ```
 
 ## Claude Code Skill

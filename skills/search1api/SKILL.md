@@ -23,6 +23,8 @@ Or via npm:
 npm install -g search1api-cli
 ```
 
+To update an existing install, the user can run `s1 update`. Only suggest this if a command fails in a way that looks version-related — don't run it as part of a normal search task.
+
 Authentication is also required. Prefer browser login:
 
 ```bash

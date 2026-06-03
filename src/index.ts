@@ -9,14 +9,25 @@ declare const __PKG_VERSION__: string | undefined;
 declare const __PKG_NAME__: string | undefined;
 
 let pkg: { name: string; version: string };
-if (typeof __PKG_VERSION__ !== "undefined") {
+const isBinary = typeof __PKG_VERSION__ !== "undefined";
+if (isBinary) {
   pkg = { name: __PKG_NAME__!, version: __PKG_VERSION__! };
 } else {
   const { createRequire } = await import("node:module");
   const require = createRequire(import.meta.url);
   pkg = require("../package.json");
 }
-updateNotifier({ pkg }).notify();
+const notifier = updateNotifier({ pkg });
+if (isBinary && notifier.update) {
+  notifier.notify({
+    message:
+      `Update available ${chalk.dim(notifier.update.current)} → ` +
+      `${chalk.green(notifier.update.latest)}\n` +
+      `Run ${chalk.cyan("s1 update")} to update`,
+  });
+} else {
+  notifier.notify();
+}
 import { registerNewsCommand } from "./commands/news.js";
 import { registerCrawlCommand } from "./commands/crawl.js";
 import { registerSitemapCommand } from "./commands/sitemap.js";
@@ -25,6 +36,7 @@ import { registerTrendingCommand } from "./commands/trending.js";
 import { registerConfigCommand } from "./commands/config.js";
 import { registerUsageCommand } from "./commands/usage.js";
 import { registerLoginCommand } from "./commands/login.js";
+import { registerUpdateCommand } from "./commands/update.js";
 
 const program = new Command();
 
@@ -42,6 +54,7 @@ registerTrendingCommand(program);
 registerUsageCommand(program);
 registerLoginCommand(program);
 registerConfigCommand(program);
+registerUpdateCommand(program, { pkg, isBinary });
 
 if (process.argv.length <= 2) {
   console.log(`
