@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO="fatwang2/search1api-cli"
+REPO="superagents-lab/search1api-cli"
 BINARY_NAME="s1"
 
 # Detect OS

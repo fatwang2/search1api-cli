@@ -35,7 +35,9 @@ s1 update
 
 ## Setup
 
-Sign in with your browser and let the CLI save your API key automatically:
+Authorize the CLI with OAuth 2.1 in your browser. The CLI dynamically registers
+as a public client, uses Authorization Code with PKCE, and refreshes access
+tokens automatically:
 
 ```bash
 s1 login
@@ -146,7 +148,7 @@ s1 balance
 
 ### login
 
-Authorize in your browser and save your API key automatically.
+Authorize in your browser with OAuth 2.1 and PKCE.
 
 ```bash
 s1 login
@@ -160,6 +162,7 @@ Manage CLI configuration.
 ```bash
 s1 config set-key <key>   # Save API key manually
 s1 config show            # Show current config
+s1 config clear           # Remove saved OAuth tokens and API keys
 ```
 
 ### update
@@ -178,7 +181,7 @@ This repo also includes a [Claude Code](https://claude.com/claude-code) skill th
 Install the skill:
 
 ```bash
-npx skills add fatwang2/search1api-cli
+npx skills add superagents-lab/search1api-cli
 ```
 
 Once installed, you can ask Claude things like:

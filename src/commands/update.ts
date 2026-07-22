@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import chalk from "chalk";
 
-const REPO = "fatwang2/search1api-cli";
+const REPO = "superagents-lab/search1api-cli";
 const PKG_NAME = "search1api-cli";
 
 interface UpdateOptions {

@@ -70,7 +70,7 @@ if (process.argv.length <= 2) {
     ${chalk.blue("s1 balance")}                    Check remaining credits
 
   ${chalk.bold("Setup:")}
-    ${chalk.blue("s1 login")}                      Log in with your browser
+    ${chalk.blue("s1 login")}                      Authorize with OAuth in your browser
     ${chalk.blue("s1 config set-key")} ${chalk.dim("<key>")}       Set your API key manually
     ${chalk.blue("s1 --help")}                     See all options
 

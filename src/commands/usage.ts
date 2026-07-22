@@ -1,5 +1,6 @@
 import { Command } from "commander";
-import { getApiKey, API_BASE } from "../config.js";
+import { fetchWithAuth } from "../auth.js";
+import { API_BASE } from "../config.js";
 import { printJson } from "../output.js";
 import chalk from "chalk";
 
@@ -9,13 +10,8 @@ export function registerUsageCommand(program: Command): void {
     .description("Check remaining API credits")
     .option("--json", "output raw JSON")
     .action(async (opts) => {
-      const apiKey = getApiKey();
-
-      const res = await fetch(`${API_BASE}/usage`, {
+      const res = await fetchWithAuth(`${API_BASE}/usage`, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
       });
 
       if (!res.ok) {
@@ -37,6 +33,7 @@ export function registerUsageCommand(program: Command): void {
       };
 
       for (const [key, value] of Object.entries(data)) {
+        if (key !== "usage") continue;
         const label = LABEL_MAP[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
         console.log(`${chalk.dim(label + ":")} ${value}`);
       }

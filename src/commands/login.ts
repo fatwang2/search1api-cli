@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { Command } from "commander";
-import { loginWithBrowser, validateApiKey } from "../auth.js";
-import { getConfigFilePath, saveApiKey } from "../config.js";
+import { loginWithBrowser, validateCredential } from "../auth.js";
+import { getConfigFilePath, saveOAuthConfig } from "../config.js";
 
 function parseInteger(value: string, label: string): number {
   const parsed = Number.parseInt(value, 10);
@@ -14,7 +14,7 @@ function parseInteger(value: string, label: string): number {
 export function registerLoginCommand(program: Command): void {
   program
     .command("login")
-    .description("Log in with your browser and save your API key")
+    .description("Authorize with OAuth 2.1 in your browser")
     .option("--no-browser", "print the authorization URL instead of opening a browser")
     .option("--timeout <seconds>", "wait timeout in seconds", "300")
     .option("--port <number>", "callback port (default: random)")
@@ -39,11 +39,11 @@ export function registerLoginCommand(program: Command): void {
         },
       });
 
-      console.log(chalk.dim("Validating API key..."));
-      await validateApiKey(result.apiKey);
-      saveApiKey(result.apiKey);
+      console.log(chalk.dim("Validating OAuth access token..."));
+      await validateCredential(result.oauth.accessToken);
+      saveOAuthConfig(result.oauth);
 
-      console.log(chalk.green("Login complete. API key saved."));
+      console.log(chalk.green("Authorization complete. OAuth tokens saved."));
       console.log(`${chalk.dim("Config file:")} ${getConfigFilePath()}`);
 
       if (process.env.SEARCH1API_KEY) {
