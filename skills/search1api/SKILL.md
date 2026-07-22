@@ -1,7 +1,7 @@
 ---
 name: search1api
 description: >
-  Powerful web search, content crawling, news, sitemap, trending topics, and deep reasoning via the search1api CLI (s1). This is far more capable than basic fetch or search tools — it supports 13+ search engines (Google, Bing, DuckDuckGo, Reddit, GitHub, YouTube, arXiv, Baidu, X, etc.), adapts to many websites for clean content extraction, and provides news aggregation across multiple sources. Use this skill whenever the user wants to search the web, look something up, research a topic, read or summarize a URL, check news, explore a site's links, see trending topics, do deep reasoning, or check API balance. Trigger on phrases like "search for", "look up", "find out about", "what's happening with", "any news on", "what does this link say", "read this page", "summarize this URL", "trending on GitHub", or when the user shares a bare URL. Even if the user doesn't say "search" explicitly, use this skill when they clearly need web information.
+  Powerful web search, content crawling, news, sitemap, and trending topics via the search1api CLI (s1). This is far more capable than basic fetch or search tools — it supports 13+ search engines (Google, Bing, DuckDuckGo, Reddit, GitHub, YouTube, arXiv, Baidu, X, etc.), adapts to many websites for clean content extraction, and provides news aggregation across multiple sources. Use this skill whenever the user wants to search the web, look something up, research a topic, read or summarize a URL, check news, explore a site's links, see trending topics, or check API balance. Trigger on phrases like "search for", "look up", "find out about", "what's happening with", "any news on", "what does this link say", "read this page", "summarize this URL", "trending on GitHub", or when the user shares a bare URL. Even if the user doesn't say "search" explicitly, use this skill when they clearly need web information.
 metadata: {"openclaw": {"requires": {"bins": ["s1"]}}}
 ---
 
@@ -50,7 +50,6 @@ If a command fails with "command not found" or an auth error, remind the user to
 | Wants news | `s1 news "<query>"` |
 | Wants to explore a site's links | `s1 sitemap <url>` |
 | Wants trending topics | `s1 trending <service>` |
-| Wants deep thinking on a problem | `s1 reasoning "<content>"` |
 | Wants to check remaining credits | `s1 balance` |
 
 ## Dynamic tuning
@@ -110,16 +109,6 @@ s1 sitemap <url>
 ```
 
 Returns all discovered links on a URL/domain.
-
-### reasoning
-
-```bash
-s1 reasoning "<content>"
-# or
-s1 reason "<content>"
-```
-
-Deep thinking powered by DeepSeek R1. Use for complex analytical questions.
 
 ### trending
 
