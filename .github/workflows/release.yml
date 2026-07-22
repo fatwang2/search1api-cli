@@ -1,18 +1,40 @@
-name: Release Binaries
+name: Release
 
 on:
   push:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-
 jobs:
-  build-and-release:
+  verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - name: Verify release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          node -e "const { version } = require('./package.json');
+          if (process.env.RELEASE_TAG !== 'v' + version)
+          throw new Error('Release tag must be v' + version);"
+      - run: npm test
+      - run: npm pack --dry-run
+
+  build-and-release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -28,7 +50,37 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            dist-bin/* \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release upload "${{ github.ref_name }}" dist-bin/* --clobber
+          else
+            gh release create "${{ github.ref_name }}" \
+              dist-bin/* \
+              --title "${{ github.ref_name }}" \
+              --generate-notes
+          fi
+
+  publish-npm:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/search1api-cli
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm ci
+      - name: Publish package
+        run: |
+          PACKAGE_SPEC=$(node -p "const packageJson = require('./package.json'); packageJson.name + '@' + packageJson.version")
+          if npm view "$PACKAGE_SPEC" version >/dev/null 2>&1; then
+            echo "$PACKAGE_SPEC is already published"
+          else
+            npm publish
+          fi
