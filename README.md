@@ -1,6 +1,6 @@
 # search1api-cli
 
-Command-line interface for [Search1API](https://search1api.com) — web search, news, crawl, sitemap, reasoning, and trending from your terminal.
+Command-line interface for [Search1API](https://search1api.com) — web search, news, crawl, sitemap, and trending from your terminal.
 
 ## Installation
 
@@ -116,15 +116,6 @@ Get related links from a website.
 
 ```bash
 s1 sitemap https://example.com
-```
-
-### reasoning
-
-Deep thinking and reasoning powered by DeepSeek R1.
-
-```bash
-s1 reasoning "Explain the fundamentals of quantum computing"
-s1 reason "Compare REST vs GraphQL"    # 'reason' is a shorthand alias
 ```
 
 ### trending

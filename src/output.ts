@@ -65,10 +65,6 @@ export function printSitemapLinks(links: string[]): void {
   console.log(chalk.dim(`\nTotal: ${links.length} links`));
 }
 
-export function printReasoning(content: string): void {
-  console.log(content);
-}
-
 export function printJson(data: unknown): void {
   console.log(JSON.stringify(data, null, 2));
 }

@@ -1,14 +1,14 @@
 {
   "name": "search1api-cli",
   "version": "1.2.2",
-  "description": "CLI tool for Search1API - web search, news, crawl, sitemap, reasoning and trending",
+  "description": "CLI tool for Search1API - web search, news, crawl, sitemap, and trending",
   "type": "module",
   "bin": {
     "search1api": "./dist/index.js",
     "s1": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
     "test": "npm run build && node --test tests/*.test.mjs",
     "test:oauth:e2e": "npm run build && node --test tests/oauth-e2e.test.mjs",
     "dev": "tsc --watch",
