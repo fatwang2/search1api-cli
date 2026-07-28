@@ -1,0 +1,45 @@
+{
+  "name": "search1api",
+  "version": "1.0.0",
+  "description": "Search the live web, read pages, find news, discover site links, and explore trending topics.",
+  "author": {
+    "name": "Search1API",
+    "url": "https://www.search1api.com"
+  },
+  "homepage": "https://www.search1api.com/docs",
+  "repository": "https://github.com/superagents-lab/search1api-cli",
+  "license": "MIT",
+  "keywords": [
+    "search",
+    "research",
+    "news",
+    "crawl",
+    "fetch",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Search1API",
+    "shortDescription": "Search the web, read pages, and track news",
+    "longDescription": "Research the live web across multiple search and news sources, extract readable content from URLs, discover site links, and explore trending topics.",
+    "developerName": "Search1API",
+    "category": "Productivity",
+    "capabilities": [
+      "Web search",
+      "News search",
+      "Web page retrieval",
+      "Sitemap discovery",
+      "Trending topics"
+    ],
+    "websiteURL": "https://www.search1api.com",
+    "privacyPolicyURL": "https://blog.search1api.com/pages/privacy",
+    "termsOfServiceURL": "https://blog.search1api.com/pages/terms",
+    "defaultPrompt": [
+      "Research the latest developments in a topic and cite the sources.",
+      "Read this URL and summarize the key points.",
+      "Find current news about a company or technology."
+    ],
+    "brandColor": "#007BFF"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "search1api",
+  "displayName": "Search1API",
+  "version": "1.0.0",
+  "description": "Search the live web, read pages, find news, discover site links, and explore trending topics.",
+  "author": {
+    "name": "Search1API",
+    "url": "https://www.search1api.com"
+  },
+  "homepage": "https://www.search1api.com/docs",
+  "repository": "https://github.com/superagents-lab/search1api-cli",
+  "license": "MIT",
+  "keywords": [
+    "search",
+    "research",
+    "news",
+    "crawl",
+    "fetch",
+    "mcp"
+  ]
+}

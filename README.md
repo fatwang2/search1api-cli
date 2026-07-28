@@ -165,14 +165,23 @@ s1 update
 s1 update --force   # reinstall even if already on the latest version
 ```
 
-## Claude Code Skill
+## Agent skill and plugins
 
-This repo also includes a [Claude Code](https://claude.com/claude-code) skill that lets Claude automatically use `s1` commands when you ask it to search the web, read URLs, check news, etc.
+This repo includes an Agent Skill plus plugin manifests for Claude Code and
+ChatGPT/Codex. The plugins connect to Search1API's hosted MCP server and keep
+the `s1` CLI as a fallback, so the same research workflow works across hosts.
 
-Install the skill:
+Install the standalone skill:
 
 ```bash
 npx skills add superagents-lab/search1api-cli
+```
+
+Developers can validate or test the plugin bundle from a local clone:
+
+```bash
+claude plugin validate . --strict
+claude --plugin-dir .
 ```
 
 Once installed, you can ask Claude things like:
