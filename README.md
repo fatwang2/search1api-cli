@@ -184,6 +184,12 @@ claude plugin validate . --strict
 claude --plugin-dir .
 ```
 
+The remote server is also published as
+[`io.github.superagents-lab/search1api`](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.superagents-lab%2Fsearch1api)
+in the official MCP Registry. Directory reviewers can use the
+[submission kit](docs/directory-submission.md) for verified URLs, listing copy,
+authentication details, use cases, and test cases.
+
 Once installed, you can ask Claude things like:
 - "search for the latest AI news"
 - "what does this link say? https://example.com"
