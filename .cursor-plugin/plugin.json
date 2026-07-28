@@ -1,0 +1,31 @@
+{
+  "name": "search1api",
+  "displayName": "Search1API",
+  "version": "1.0.0",
+  "description": "Search the live web, read pages, find news, discover site links, and explore trending topics.",
+  "author": {
+    "name": "Search1API",
+    "email": "sys@search1api.com"
+  },
+  "publisher": "SuperAgents, LLC",
+  "homepage": "https://www.search1api.com/docs/integrations/skills",
+  "repository": "https://github.com/superagents-lab/search1api-cli",
+  "license": "MIT",
+  "logo": "assets/search1api-icon.png",
+  "keywords": [
+    "search",
+    "research",
+    "news",
+    "crawl",
+    "fetch",
+    "mcp"
+  ],
+  "category": "developer-tools",
+  "tags": [
+    "web-search",
+    "research",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}
