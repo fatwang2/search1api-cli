@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "superagents-lab",
+  "description": "Search1API plugins for live web research.",
+  "owner": {
+    "name": "Search1API",
+    "email": "sys@search1api.com"
+  },
+  "plugins": [
+    {
+      "name": "search1api",
+      "source": "./",
+      "description": "Search the live web, read pages, find news, discover site links, and explore trending topics.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Search1API",
+        "email": "sys@search1api.com"
+      },
+      "homepage": "https://www.search1api.com/docs/integrations/skills",
+      "repository": "https://github.com/superagents-lab/search1api-cli",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": [
+        "search",
+        "research",
+        "news",
+        "crawl",
+        "fetch",
+        "mcp"
+      ]
+    }
+  ]
+}

@@ -51,6 +51,9 @@ WeChat, and Bilibili.
 - Repository URL: https://github.com/superagents-lab/search1api-cli
 - Plugin root: repository root.
 - Components: one Agent Skill and one remote MCP connection.
+- Custom marketplace:
+  - `claude plugin marketplace add superagents-lab/search1api-cli`
+  - `claude plugin install search1api@superagents-lab`
 - Validation:
   - `claude plugin validate . --strict`
   - `claude --plugin-dir . plugin list`
