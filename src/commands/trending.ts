@@ -1,16 +1,8 @@
 import { Command } from "commander";
-import { request } from "../api.js";
+import { trending, type TrendingService } from "../sdk.js";
 import { printTrendingResults, printJson } from "../output.js";
 
 const TRENDING_SERVICES = ["github", "hackernews"];
-
-interface TrendingResponse {
-  results: Array<{
-    title: string;
-    url: string;
-    description?: string;
-  }>;
-}
 
 export function registerTrendingCommand(program: Command): void {
   program
@@ -19,10 +11,10 @@ export function registerTrendingCommand(program: Command): void {
     .option("-n, --max-results <number>", "max results (1-50)", "10")
     .option("--json", "output raw JSON")
     .action(async (service: string, opts) => {
-      const data = await request<TrendingResponse>("/trending", {
-        search_service: service,
-        max_results: parseInt(opts.maxResults),
-      });
+      const data = await trending(
+        service as TrendingService,
+        { maxResults: parseInt(opts.maxResults) }
+      );
 
       if (opts.json) {
         printJson(data);
