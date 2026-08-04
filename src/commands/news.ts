@@ -1,17 +1,8 @@
 import { Command } from "commander";
-import { request } from "../api.js";
+import { news, type NewsOptions } from "../sdk.js";
 import { printSearchResults, printJson } from "../output.js";
 
 const NEWS_SERVICES = ["google", "bing", "duckduckgo", "yahoo", "hackernews"];
-
-interface NewsResponse {
-  results: Array<{
-    title: string;
-    link: string;
-    snippet: string;
-    content?: string;
-  }>;
-}
 
 export function registerNewsCommand(program: Command): void {
   program
@@ -25,17 +16,16 @@ export function registerNewsCommand(program: Command): void {
     .option("-t, --time <range>", "time range: day, month, year")
     .option("--json", "output raw JSON")
     .action(async (query: string, opts) => {
-      const body: Record<string, unknown> = {
-        query,
-        max_results: parseInt(opts.maxResults),
-        search_service: opts.service,
-        crawl_results: parseInt(opts.crawl),
+      const options: NewsOptions = {
+        maxResults: parseInt(opts.maxResults),
+        searchService: opts.service,
+        crawlResults: parseInt(opts.crawl),
       };
-      if (opts.include) body.include_sites = opts.include;
-      if (opts.exclude) body.exclude_sites = opts.exclude;
-      if (opts.time) body.time_range = opts.time;
+      if (opts.include) options.includeSites = opts.include;
+      if (opts.exclude) options.excludeSites = opts.exclude;
+      if (opts.time) options.timeRange = opts.time;
 
-      const data = await request<NewsResponse>("/news", body);
+      const data = await news(query, options);
 
       if (opts.json) {
         printJson(data);

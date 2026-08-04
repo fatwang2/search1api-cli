@@ -1,14 +1,6 @@
 import { Command } from "commander";
-import { request } from "../api.js";
+import { crawl } from "../sdk.js";
 import { printCrawlResult, printJson } from "../output.js";
-
-interface CrawlResponse {
-  results: {
-    title: string;
-    link: string;
-    content: string;
-  };
-}
 
 export function registerCrawlCommand(program: Command): void {
   program
@@ -16,7 +8,7 @@ export function registerCrawlCommand(program: Command): void {
     .description("Extract content from a URL")
     .option("--json", "output raw JSON")
     .action(async (url: string, opts) => {
-      const data = await request<CrawlResponse>("/crawl", { url });
+      const data = await crawl(url);
 
       if (opts.json) {
         printJson(data);

@@ -165,6 +165,27 @@ s1 update
 s1 update --force   # reinstall even if already on the latest version
 ```
 
+## SDK
+
+Plugin and integration packages can reuse the CLI's authentication, OAuth
+refresh, request handling, and typed Search1API methods instead of maintaining
+a second client:
+
+```ts
+import { search, crawl } from "search1api-cli/sdk";
+
+const results = await search("OpenCode plugins", {
+  maxResults: 5,
+  searchService: "github",
+});
+
+const page = await crawl("https://example.com");
+```
+
+The SDK uses `SEARCH1API_KEY`, the shared `s1 login` OAuth session, or the
+optional per-call `apiKey`. Every method also accepts an `AbortSignal` so host
+applications can cancel tool calls.
+
 ## Agent skill and plugins
 
 This repo includes an Agent Skill plus compatibility manifests for Claude Code,
