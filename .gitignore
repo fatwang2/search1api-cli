@@ -4,5 +4,8 @@ dist-bin/
 *.tsbuildinfo
 .env
 CLAUDE.local.md
-.agents/
+.agents/*
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json
 .claude/

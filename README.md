@@ -188,10 +188,12 @@ applications can cancel tool calls.
 
 ## Agent skill and plugins
 
-This repo includes an Agent Skill plus compatibility manifests for Claude Code,
-ChatGPT/Codex, Cursor, and OpenClaw. The plugins connect to Search1API's hosted
-MCP server and keep the `s1` CLI as a fallback, so the same research workflow
-works across hosts.
+This repo is the shared distribution point for the Search1API Agent Skill and
+compatibility manifests for Claude Code, ChatGPT/Codex, and Cursor. Dedicated
+OpenCode, OpenClaw, and Grok Build plugins reuse the same Search1API SDK,
+hosted MCP server, and research workflow from their own repositories.
+
+### Agent Skill
 
 Install the standalone skill:
 
@@ -199,12 +201,62 @@ Install the standalone skill:
 npx skills add superagents-lab/search1api-cli
 ```
 
+### Claude Code
+
 Install the Claude Code plugin from Search1API's custom marketplace:
 
 ```bash
 claude plugin marketplace add superagents-lab/search1api-cli
 claude plugin install search1api@superagents-lab
 ```
+
+### Codex
+
+Add this repository as a Codex marketplace, then install the plugin:
+
+```bash
+codex plugin marketplace add superagents-lab/search1api-cli
+codex plugin add search1api@superagents-lab
+```
+
+### Grok Build
+
+Install the dedicated
+[`grok-search1api`](https://github.com/superagents-lab/grok-search1api)
+plugin directly from GitHub:
+
+```bash
+agent plugin install superagents-lab/grok-search1api --trust
+```
+
+The same repository can also be added as a custom Grok marketplace:
+
+```bash
+agent plugin marketplace add superagents-lab/grok-search1api
+```
+
+### OpenCode and OpenClaw
+
+Install the dedicated OpenCode plugin from npm:
+
+```bash
+opencode plugin opencode-search1api
+```
+
+Install the dedicated OpenClaw plugin from ClawHub:
+
+```bash
+openclaw plugins install clawhub:@fatwang2/openclaw-search1api
+```
+
+See the source repositories for platform-specific configuration and release
+details:
+
+- [`opencode-search1api`](https://github.com/superagents-lab/opencode-search1api)
+- [`openclaw-search1api`](https://github.com/superagents-lab/openclaw-search1api)
+- [`grok-search1api`](https://github.com/superagents-lab/grok-search1api)
+
+### Development and directories
 
 Developers can validate or test the plugin bundle from a local clone:
 
@@ -217,15 +269,18 @@ The remote server is also published as
 [`io.github.superagents-lab/search1api`](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.superagents-lab%2Fsearch1api)
 in the official MCP Registry. Directory reviewers can use the
 [submission kit](docs/directory-submission.md) for verified URLs, listing copy,
-authentication details, use cases, and test cases.
+authentication details, use cases, and test cases. The Cursor manifest in this
+repository is available for local or team testing; public Cursor Marketplace
+availability is a separate review process.
 
-Once installed, you can ask Claude things like:
+Once installed, you can ask the host agent things like:
 - "search for the latest AI news"
 - "what does this link say? https://example.com"
 - "what's trending on GitHub?"
 - "research quantum computing thoroughly"
 
-Claude will automatically use the appropriate `s1` command and summarize the results.
+The plugin uses the hosted Search1API MCP tools and the shared research skill;
+the `s1` CLI remains available as a fallback where supported.
 
 ## JSON Output
 
