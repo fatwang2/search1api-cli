@@ -167,14 +167,22 @@ s1 update --force   # reinstall even if already on the latest version
 
 ## Agent skill and plugins
 
-This repo includes an Agent Skill plus plugin manifests for Claude Code and
-ChatGPT/Codex. The plugins connect to Search1API's hosted MCP server and keep
-the `s1` CLI as a fallback, so the same research workflow works across hosts.
+This repo includes an Agent Skill plus compatibility manifests for Claude Code,
+ChatGPT/Codex, Cursor, and OpenClaw. The plugins connect to Search1API's hosted
+MCP server and keep the `s1` CLI as a fallback, so the same research workflow
+works across hosts.
 
 Install the standalone skill:
 
 ```bash
 npx skills add superagents-lab/search1api-cli
+```
+
+Install the Claude Code plugin from Search1API's custom marketplace:
+
+```bash
+claude plugin marketplace add superagents-lab/search1api-cli
+claude plugin install search1api@superagents-lab
 ```
 
 Developers can validate or test the plugin bundle from a local clone:
