@@ -71,7 +71,7 @@ if (process.argv.length <= 2) {
     ${chalk.blue("s1 config set-key")} ${chalk.dim("<key>")}       Set your API key manually
     ${chalk.blue("s1 --help")}                     See all options
 
-  ${chalk.dim("Get your API key at")} ${chalk.blue("https://search1api.com")}
+  ${chalk.dim("Get your API key at")} ${chalk.blue("https://s1.dev")}
 `);
 } else {
   program.parseAsync().catch((err: Error) => {

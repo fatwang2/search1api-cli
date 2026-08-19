@@ -16,9 +16,9 @@ test credential only in the submission portal.
 | Plugin repository | https://github.com/superagents-lab/search1api-cli |
 | MCP repository | https://github.com/superagents-lab/search1api-mcp |
 | MCP endpoint | https://mcp.search1api.com/mcp |
-| Website | https://www.search1api.com |
-| Documentation | https://www.search1api.com/docs/integrations/mcp |
-| Skill documentation | https://www.search1api.com/docs/integrations/skills |
+| Website | https://s1.dev |
+| Documentation | https://s1.dev/docs/integrations/mcp |
+| Skill documentation | https://s1.dev/docs/integrations/skills |
 | Privacy policy | https://blog.search1api.com/pages/privacy |
 | Terms | https://blog.search1api.com/pages/terms |
 | Support URL | https://github.com/superagents-lab/search1api-cli/issues |
@@ -196,7 +196,7 @@ Revoke it after the review is complete.
 
 #### 5. Site discovery
 
-- Prompt: `List the main documentation URLs available on https://www.search1api.com.`
+- Prompt: `List the main documentation URLs available on https://s1.dev.`
 - Expected behavior: call `sitemap` for the supplied public origin and group
   the returned URLs without inventing missing pages.
 - Expected result: organized list of real, openable URLs.

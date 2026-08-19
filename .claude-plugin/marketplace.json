@@ -16,7 +16,7 @@
         "name": "Search1API",
         "email": "sys@search1api.com"
       },
-      "homepage": "https://www.search1api.com/docs/integrations/skills",
+      "homepage": "https://s1.dev/docs/integrations/skills",
       "repository": "https://github.com/superagents-lab/search1api-cli",
       "license": "MIT",
       "category": "productivity",
