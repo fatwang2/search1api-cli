@@ -1,6 +1,6 @@
 # search1api-cli
 
-Command-line interface for [Search1API](https://search1api.com) — web search, news, crawl, sitemap, and trending from your terminal.
+Command-line interface for [Search1API](https://s1.dev) — web search, news, crawl, sitemap, and trending from your terminal.
 
 ## Installation
 

@@ -9,5 +9,5 @@ console.log(`
   Need a manual fallback?
     s1 config set-key <your-api-key>
 
-  Get your API key at https://search1api.com
+  Get your API key at https://s1.dev
 `);

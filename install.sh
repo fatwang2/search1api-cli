@@ -83,7 +83,7 @@ if command -v "$BINARY_NAME" &>/dev/null; then
   echo "  s1 login"
   echo "  s1 search \"your query\""
   echo ""
-  echo "Get your API key at https://search1api.com"
+  echo "Get your API key at https://s1.dev"
 else
   echo ""
   echo "Installed to ${INSTALL_PATH}"

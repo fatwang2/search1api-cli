@@ -6,9 +6,9 @@
   "description": "Search the live web, read pages, find news, discover site links, and explore trending topics.",
   "author": {
     "name": "Search1API",
-    "url": "https://www.search1api.com"
+    "url": "https://s1.dev"
   },
-  "homepage": "https://www.search1api.com/docs",
+  "homepage": "https://s1.dev/docs",
   "repository": "https://github.com/superagents-lab/search1api-cli",
   "license": "MIT",
   "keywords": [

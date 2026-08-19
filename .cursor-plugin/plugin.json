@@ -8,7 +8,7 @@
     "email": "sys@search1api.com"
   },
   "publisher": "SuperAgents, LLC",
-  "homepage": "https://www.search1api.com/docs/integrations/skills",
+  "homepage": "https://s1.dev/docs/integrations/skills",
   "repository": "https://github.com/superagents-lab/search1api-cli",
   "license": "MIT",
   "logo": "assets/search1api-icon.png",
