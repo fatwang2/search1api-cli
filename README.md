@@ -150,6 +150,10 @@ Nothing is installed unless `--install` is passed, and a directory `s1 learn`
 did not create is never overwritten. Relearning the same URL rewrites
 `references/` and keeps a `SKILL.md` you have edited.
 
+Page content is written straight to disk. The command prints a summary, and
+`--json` lists only `file`, `url`, and `title` per page — so learning a large
+site does not push its text through the agent that ran it.
+
 ### trending
 
 Get trending topics from popular platforms.

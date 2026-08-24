@@ -219,6 +219,13 @@ breath as the crawl.
 6. Offer to sharpen the generated `SKILL.md` description and triggers. An
    existing directory `s1 learn` did not create is never overwritten.
 
+The crawled pages go straight to disk — `s1 learn` prints a summary, and
+`--json` lists only `file`, `url`, and `title`. Keep it that way: work from
+those titles, and do not read or print the files under `references/`. Pulling
+them into the conversation is what `crawl` is for, and it defeats the point of
+learning the URL in the first place. Read a specific reference file only when
+the user asks a question that needs its content right now.
+
 ### URL summarization
 
 1. `s1 crawl <url>` → get the page content
