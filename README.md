@@ -1,6 +1,6 @@
 # search1api-cli
 
-Command-line interface for [Search1API](https://s1.dev) — web search, news, crawl, sitemap, and trending from your terminal.
+Command-line interface for [Search1API](https://s1.dev) — web search, news, crawl, sitemap, trending, and turning a URL into an Agent Skill, from your terminal.
 
 ## Installation
 
@@ -117,6 +117,38 @@ Get related links from a website.
 ```bash
 s1 sitemap https://example.com
 ```
+
+### learn
+
+Turn a URL into an installable Agent Skill directory.
+
+```bash
+s1 learn https://example.com/guide              # one page, 1 credit
+s1 learn https://example.com/docs --site        # the site, ~1 credit per page
+s1 learn https://example.com/docs --site --max-pages 40
+s1 learn --from <staged dir> --install project  # install what was already learned
+```
+
+```
+<name>/
+  SKILL.md                 # routing layer: when to use, what is in references/
+  references/*.md          # page content with title/url frontmatter
+  references/sources.json  # source URLs and hashes, so it can be relearned
+```
+
+| Option | Description | Default |
+|---|---|---|
+| `--site` | Learn the whole site instead of the single page | off |
+| `--max-pages <N>` | Page cap in `--site` mode | 20 |
+| `--name <name>` | Skill directory name | derived from the host |
+| `--out <dir>` | Where to write the directory | staging dir under the cache |
+| `--from <dir>` | Install an already-learned directory instead of crawling | |
+| `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
+| `--json` | Output raw JSON | |
+
+Nothing is installed unless `--install` is passed, and a directory `s1 learn`
+did not create is never overwritten. Relearning the same URL rewrites
+`references/` and keeps a `SKILL.md` you have edited.
 
 ### trending
 
@@ -278,6 +310,7 @@ Once installed, you can ask the host agent things like:
 - "what does this link say? https://example.com"
 - "what's trending on GitHub?"
 - "research quantum computing thoroughly"
+- "learn these docs so you can use them later"
 
 The plugin uses the hosted Search1API MCP tools and the shared research skill;
 the `s1` CLI remains available as a fallback where supported.

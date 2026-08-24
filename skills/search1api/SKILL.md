@@ -1,7 +1,7 @@
 ---
 name: search1api
 description: >
-  Live web search, page retrieval, news, sitemap discovery, and trending topics through Search1API. Use this skill whenever the user wants to search the web, look something up, research a topic, read or summarize a URL, check current news, explore a site's links, see trending topics, or check API balance. Trigger on phrases like "search for", "look up", "find out about", "what's happening with", "any news on", "what does this link say", "read this page", "summarize this URL", "trending on GitHub", or when the user shares a bare URL. Prefer the bundled Search1API MCP tools when available and fall back to the search1api CLI (`s1`).
+  Live web search, page retrieval, news, sitemap discovery, trending topics, and turning a URL into a reusable Agent Skill — all through Search1API. Use this skill whenever the user wants to search the web, look something up, research a topic, read or summarize a URL, check current news, explore a site's links, see trending topics, check API balance, or teach an agent a URL so it can be used later. Trigger on phrases like "search for", "look up", "find out about", "what's happening with", "any news on", "what does this link say", "read this page", "summarize this URL", "trending on GitHub", "learn this URL", "learn this site", "turn these docs into a skill", "记住这个链接", "学会这个文档", or when the user shares a bare URL. Prefer the bundled Search1API MCP tools when available and fall back to the search1api CLI (`s1`).
 metadata: {"openclaw": {"requires": {"bins": ["s1"]}}}
 ---
 
@@ -66,6 +66,19 @@ user to install `s1` and run `s1 login` before retrying.
 | Wants to explore a site's links | `sitemap` | `s1 sitemap <url>` |
 | Wants trending topics | `trending` | `s1 trending <service>` |
 | Wants to check remaining credits | Not exposed | `s1 balance` |
+| Wants an agent to *keep* a URL for later use | Not exposed | `s1 learn <url>` |
+
+### Read it once, or learn it for good?
+
+These look similar and are not:
+
+- "What does this page say?", "summarize this link", "read these docs and
+  answer X" → **`crawl`**. One page, answer now, nothing written to disk.
+- "Learn this URL", "make a skill out of these docs", "记住这个文档" → **`learn`**.
+  Produces an installable skill directory the user's agent can load later.
+- Only add **`--site`** when the user clearly means the whole site or section
+  ("learn the whole docs", "整站"). Scope is a billing decision — 1 credit for a
+  page, roughly `1 + pages` for a site — so when it is unclear, ask before running.
 
 ## Dynamic tuning
 
@@ -137,6 +150,40 @@ s1 trending <service> [-n <N>]
 
 Services: github, hackernews.
 
+### learn
+
+```bash
+s1 learn <url> [--site] [--max-pages <N>] [--name <name>] [--out <dir>]
+s1 learn --from <dir> --install <global|project>
+```
+
+Turns a URL into an Agent Skill directory:
+
+```
+<name>/
+  SKILL.md                 # routing layer: when to use, what is in references/
+  references/*.md          # page content with title/url frontmatter
+  references/sources.json  # source URLs and hashes, so it can be relearned
+```
+
+| Option | Description | Default |
+|---|---|---|
+| `--site` | Learn the whole site instead of the single page | off |
+| `--max-pages <N>` | Page cap in `--site` mode | 20 |
+| `--name <name>` | Skill directory name | derived from the host |
+| `--out <dir>` | Where to write it | a staging dir under the cache |
+| `--from <dir>` | Install an already-learned directory (no crawl, no credits) | |
+| `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
+| `--json` | Raw JSON output | |
+
+Cost: a single page is 1 credit. `--site` is 1 credit for link discovery plus 1
+per page crawled, so the default cap is about 21 credits. Nothing is installed
+unless `--install` is passed.
+
+`SKILL.md` is a deterministic skeleton — no model writes it. Rewrite its
+description and triggers to fit how the user will actually invoke it. Relearning
+the same URL rewrites `references/` and keeps a `SKILL.md` that has been edited.
+
 ### balance
 
 ```bash
@@ -152,6 +199,25 @@ Shows remaining API credits.
 1. Use `search` (or `s1 search "<topic>" -n 15`) to get broad results
 2. Use `fetch` with result IDs (or `s1 crawl <url>`) for the top 3–5 relevant pages
 3. Synthesize all gathered content into a coherent answer with source citations
+
+### Learning a URL into a skill
+
+The user must confirm before anything lands on disk. Never install in the same
+breath as the crawl.
+
+1. Decide the scope. Default to the single page. If the user means a whole site
+   and has not said so explicitly, ask first — it is the difference between
+   1 credit and roughly 21.
+2. Run `s1 learn <url> [--site] --json`. It writes to a staging directory and
+   installs nothing.
+3. Tell the user the skill name, how many pages it captured, and where it is.
+4. Ask where it should go: globally (`~/.agents/skills/`), in this project
+   (`./.agents/skills/`), or leave it staged for now.
+5. Only after they say yes, run
+   `s1 learn --from <staged dir> --install <global|project>`. This re-uses what
+   was already crawled — it costs nothing and makes no further requests.
+6. Offer to sharpen the generated `SKILL.md` description and triggers. An
+   existing directory `s1 learn` did not create is never overwritten.
 
 ### URL summarization
 
