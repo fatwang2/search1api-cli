@@ -39,12 +39,15 @@ export interface WriteResult {
   dir: string;
   entries: SourceEntry[];
   keptSkillFile: boolean;
+  refreshedTable: boolean;
   removed: string[];
 }
 
 const MAX_NAME_LENGTH = 48;
 const MAX_FILENAME_LENGTH = 80;
 const SOURCES_FILE = "references/sources.json";
+const TABLE_START = "<!-- s1:references:start -->";
+const TABLE_END = "<!-- s1:references:end -->";
 
 export function sanitizeSegment(value: string): string {
   return value
@@ -59,10 +62,29 @@ function truncateName(value: string): string {
   return value.slice(0, MAX_NAME_LENGTH).replace(/-+[^-]*$/, "") || value.slice(0, MAX_NAME_LENGTH);
 }
 
-/** `docs.stripe.com` -> `docs-stripe`; the TLD carries no meaning in a skill name. */
+/**
+ * `docs.umami.is` -> `umami`. The TLD carries no meaning in a skill name, and
+ * neither does the subdomain a project parks its docs on.
+ */
+const DOC_SUBDOMAINS = new Set([
+  "docs",
+  "doc",
+  "developer",
+  "developers",
+  "dev",
+  "help",
+  "support",
+  "learn",
+  "wiki",
+  "www",
+]);
+
 export function hostSlug(hostname: string): string {
-  const labels = hostname.replace(/^www\./, "").split(".").filter(Boolean);
-  const kept = labels.length > 1 ? labels.slice(0, -1) : labels;
+  const labels = hostname.split(".").filter(Boolean);
+  const kept = labels.length > 1 ? labels.slice(0, -1) : labels.slice();
+  while (kept.length > 1 && DOC_SUBDOMAINS.has(kept[0])) {
+    kept.shift();
+  }
   return sanitizeSegment(kept.join("-")) || "site";
 }
 
@@ -115,6 +137,44 @@ export function renderReference(page: LearnedPage): string {
   return `---\ntitle: ${yamlString(title)}\nurl: ${page.url}\n---\n\n${page.content.trim()}\n`;
 }
 
+function cell(value: string): string {
+  return value.replace(/\|/g, "\\|");
+}
+
+/**
+ * Titles repeat across a doc site — three pages called "Overview" are useless
+ * to route on — so every row carries its path too.
+ */
+export function renderReferenceTable(entries: SourceEntry[]): string {
+  const rows = entries
+    .map((entry) => {
+      let path = entry.url;
+      try {
+        path = new URL(entry.url).pathname;
+      } catch {
+        // Keep the raw value when it is not a parseable URL.
+      }
+      return `| ${cell(entry.title)} | ${cell(path)} | [${entry.file}](${entry.file}) |`;
+    })
+    .join("\n");
+  return `${TABLE_START}\n| Page | Path | File |\n| --- | --- | --- |\n${rows}\n${TABLE_END}`;
+}
+
+/** Replace the generated table in place, leaving every other line alone. */
+export function spliceReferenceTable(existing: string, table: string): string | null {
+  const start = existing.indexOf(TABLE_START);
+  const end = existing.indexOf(TABLE_END);
+  if (start === -1 || end === -1 || end < start) return null;
+  return existing.slice(0, start) + table + existing.slice(end + TABLE_END.length);
+}
+
+function extractReferenceTable(text: string): string | null {
+  const start = text.indexOf(TABLE_START);
+  const end = text.indexOf(TABLE_END);
+  if (start === -1 || end === -1 || end < start) return null;
+  return text.slice(start, end + TABLE_END.length);
+}
+
 /**
  * Deterministic routing layer only — no model writes this file. The user's own
  * agent edits the trigger wording; a refresh must never clobber that.
@@ -128,9 +188,6 @@ export function renderSkillFile(options: {
   const { name, source, mode, entries } = options;
   const host = new URL(source).hostname.replace(/^www\./, "");
   const scope = mode === "site" ? `the ${host} site` : `${host}`;
-  const rows = entries
-    .map((entry) => `| ${entry.title.replace(/\|/g, "\\|")} | [${entry.file}](${entry.file}) |`)
-    .join("\n");
 
   return `---
 name: ${name}
@@ -152,9 +209,7 @@ content that is not in these files — crawl the site again instead.
 
 ## References
 
-| Page | File |
-| --- | --- |
-${rows}
+${renderReferenceTable(entries)}
 
 Refresh with \`s1 learn ${source}${mode === "site" ? " --site" : ""}\`. A refresh
 rewrites \`references/\` and leaves this file exactly as you have edited it.
@@ -255,11 +310,20 @@ export function writeSkillDirectory(options: {
 
   const skillPath = join(dir, "SKILL.md");
   const keptSkillFile = existsSync(skillPath) && !skillFileIsUntouched(dir, previous);
-  if (!keptSkillFile) {
+  let refreshedTable = false;
+  if (keptSkillFile) {
+    // The prose is the user's; the table between the markers is ours.
+    const existing = readFileSync(skillPath, "utf-8");
+    const spliced = spliceReferenceTable(existing, renderReferenceTable(plain));
+    if (spliced !== null && spliced !== existing) {
+      writeFileSync(skillPath, spliced);
+      refreshedTable = true;
+    }
+  } else {
     writeFileSync(skillPath, renderSkillFile({ name, source, mode, entries: plain }));
   }
 
-  return { dir, entries: plain, keptSkillFile, removed };
+  return { dir, entries: plain, keptSkillFile, refreshedTable, removed };
 }
 
 export function stagingDirectory(name: string): string {
@@ -279,14 +343,17 @@ export function installDirectory(scope: InstallScope, name: string): string {
  * Copy a staged skill into place. An existing directory we did not write is
  * never touched; one we did write keeps its (possibly edited) SKILL.md.
  */
-export function installStagedSkill(from: string, to: string): { keptSkillFile: boolean } {
+export function installStagedSkill(
+  from: string,
+  to: string
+): { keptSkillFile: boolean; refreshedTable: boolean } {
   if (!existsSync(join(from, SOURCES_FILE))) {
     throw new Error(`${from} is not a skill directory produced by s1 learn.`);
   }
   if (!existsSync(to)) {
     mkdirSync(to, { recursive: true });
     cpSync(from, to, { recursive: true });
-    return { keptSkillFile: false };
+    return { keptSkillFile: false, refreshedTable: false };
   }
   const installed = readSources(to);
   if (!installed) {
@@ -299,27 +366,26 @@ export function installStagedSkill(from: string, to: string): { keptSkillFile: b
   cpSync(join(from, "references"), join(to, "references"), { recursive: true });
   if (untouched || !existsSync(join(to, "SKILL.md"))) {
     cpSync(join(from, "SKILL.md"), join(to, "SKILL.md"));
-    return { keptSkillFile: false };
+    return { keptSkillFile: false, refreshedTable: false };
   }
-  return { keptSkillFile: true };
+
+  const table = extractReferenceTable(readFileSync(join(from, "SKILL.md"), "utf-8"));
+  const existing = readFileSync(join(to, "SKILL.md"), "utf-8");
+  const spliced = table ? spliceReferenceTable(existing, table) : null;
+  if (spliced !== null && spliced !== existing) {
+    writeFileSync(join(to, "SKILL.md"), spliced);
+    return { keptSkillFile: true, refreshedTable: true };
+  }
+  return { keptSkillFile: true, refreshedTable: false };
 }
 
-/**
- * Pick which discovered links to learn. Pages under the requested path win, then
- * shallower ones — a skill built from the first 20 pages of a doc site should be
- * its overview pages, not whichever links the sitemap happened to list first.
- */
-export function selectSiteUrls(
-  links: string[],
-  source: string,
-  limit: number
-): { selected: string[]; discovered: number } {
-  const origin = new URL(source);
-  const prefix = origin.pathname.replace(/\/+$/, "");
+/** Same-origin, hash-free, trailing-slash-free, deduped, in input order. */
+export function normalizeCandidates(links: Iterable<string>, base: string): string[] {
+  const origin = new URL(base);
   const seen = new Set<string>();
   const candidates: string[] = [];
 
-  for (const link of [source, ...links]) {
+  for (const link of links) {
     let parsed: URL;
     try {
       parsed = new URL(link, origin);
@@ -338,8 +404,17 @@ export function selectSiteUrls(
     seen.add(normalized);
     candidates.push(normalized);
   }
+  return candidates;
+}
 
-  const ranked = candidates
+/**
+ * Order candidates for learning. Pages under the requested path win, then
+ * shallower ones — a skill built from the first 20 pages of a doc site should be
+ * its overview pages, not whichever links the sitemap happened to list first.
+ */
+export function rankUrls(urls: string[], source: string): string[] {
+  const prefix = new URL(source).pathname.replace(/\/+$/, "");
+  return urls
     .map((url, index) => {
       const path = new URL(url).pathname;
       return {
@@ -355,10 +430,63 @@ export function selectSiteUrls(
         a.depth - b.depth ||
         a.url.length - b.url.length ||
         a.index - b.index
-    );
+    )
+    .map((item) => item.url);
+}
 
+export function selectSiteUrls(
+  links: string[],
+  source: string,
+  limit: number
+): { selected: string[]; discovered: number } {
+  const candidates = normalizeCandidates([source, ...links], source);
   return {
-    selected: ranked.slice(0, Math.max(1, limit)).map((item) => item.url),
+    selected: rankUrls(candidates, source).slice(0, Math.max(1, limit)),
     discovered: candidates.length,
   };
+}
+
+/**
+ * A page whose own text links to children under its path — `/docs/api` linking
+ * to `/docs/api/authentication`. Crawling strips the rendered nav, so the text
+ * usually names only a couple of them; the page is worth one discovery call to
+ * get the rest.
+ */
+export function isSectionIndex(pageUrl: string, links: string[]): boolean {
+  let base: string;
+  try {
+    base = new URL(pageUrl).pathname.replace(/\/+$/, "");
+  } catch {
+    return false;
+  }
+  if (!base) return false;
+  return links.some((link) => {
+    try {
+      return new URL(link).pathname.startsWith(`${base}/`);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Links in already-crawled markdown. Sitemaps routinely omit whole subtrees —
+ * umami's lists 51 pages and none of its API reference — but the section index
+ * we just paid to crawl links to them, so following those costs no discovery.
+ */
+export function extractLinks(markdown: string, pageUrl: string): string[] {
+  const found: string[] = [];
+  const inline = /\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)/g;
+  const autolink = /<((?:https?:)\/\/[^\s>]+)>/g;
+  for (const pattern of [inline, autolink]) {
+    let match = pattern.exec(markdown);
+    while (match !== null) {
+      const href = match[1];
+      if (href && !href.startsWith("#") && !href.startsWith("mailto:")) {
+        found.push(href);
+      }
+      match = pattern.exec(markdown);
+    }
+  }
+  return normalizeCandidates(found, pageUrl);
 }

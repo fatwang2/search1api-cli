@@ -170,6 +170,7 @@ Turns a URL into an Agent Skill directory:
 |---|---|---|
 | `--site` | Learn the whole site instead of the single page | off |
 | `--max-pages <N>` | Page cap in `--site` mode | 20 |
+| `--depth <N>` | In `--site` mode, also follow links found in the pages learned | 1 |
 | `--name <name>` | Skill directory name | derived from the host |
 | `--out <dir>` | Where to write it | a staging dir under the cache |
 | `--from <dir>` | Install an already-learned directory (no crawl, no credits) | |
@@ -179,6 +180,13 @@ Turns a URL into an Agent Skill directory:
 Cost: a single page is 1 credit. `--site` is 1 credit for link discovery plus 1
 per page crawled, so the default cap is about 21 credits. Nothing is installed
 unless `--install` is passed.
+
+Sitemaps lie. Doc sites routinely omit a whole subtree — umami's sitemap lists
+51 pages and none of its API reference. When the output says pages are linked
+but not included, or when an obvious section is missing from the result, rerun
+with `--depth 2` and a higher `--max-pages`. Depth 2 follows the links in the
+pages it already crawled, and spends one extra credit per section index page to
+recover children the rendered nav hides.
 
 `SKILL.md` is a deterministic skeleton — no model writes it. Rewrite its
 description and triggers to fit how the user will actually invoke it. Relearning

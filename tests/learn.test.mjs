@@ -5,7 +5,11 @@ import { join } from "node:path";
 import test from "node:test";
 
 const {
+  extractLinks,
   hostSlug,
+  isSectionIndex,
+  renderReferenceTable,
+  spliceReferenceTable,
   installStagedSkill,
   isLearnedDirectory,
   referenceFilename,
@@ -25,10 +29,13 @@ const PAGES = [
 ];
 
 test("skill and reference names stay short and collision-free", () => {
-  assert.equal(hostSlug("docs.stripe.com"), "docs-stripe");
+  assert.equal(hostSlug("docs.stripe.com"), "stripe");
+  assert.equal(hostSlug("docs.umami.is"), "umami");
   assert.equal(hostSlug("www.example.com"), "example");
-  assert.equal(skillName("https://docs.stripe.com/webhooks", "site"), "docs-stripe");
-  assert.equal(skillName("https://docs.stripe.com/webhooks", "page"), "docs-stripe-webhooks");
+  assert.equal(hostSlug("blog.example.com"), "blog-example");
+  assert.equal(hostSlug("docs.dev"), "docs");
+  assert.equal(skillName("https://docs.stripe.com/webhooks", "site"), "stripe");
+  assert.equal(skillName("https://docs.stripe.com/webhooks", "page"), "stripe-webhooks");
   assert.equal(skillName("https://example.com/", "page"), "example");
 
   const taken = new Set();
@@ -96,6 +103,7 @@ test("refreshing keeps an edited SKILL.md and drops pages that vanished", () => 
   });
 
   assert.equal(refreshed.keptSkillFile, true);
+  assert.equal(refreshed.refreshedTable, false); // no markers in a hand-written file
   assert.deepEqual(refreshed.removed, ["references/guide-start-2.md"]);
   assert.equal(readFileSync(join(dir, "SKILL.md"), "utf-8"), "edited by the user\n");
   assert.equal(existsSync(join(dir, "references/guide-start-2.md")), false);
@@ -138,7 +146,7 @@ test("install never overwrites a directory s1 learn did not write", () => {
   });
 
   const fresh = join(tempDir(), "docs-example");
-  assert.deepEqual(installStagedSkill(staged, fresh), { keptSkillFile: false });
+  assert.deepEqual(installStagedSkill(staged, fresh), { keptSkillFile: false, refreshedTable: false });
   assert.ok(existsSync(join(fresh, "references/sources.json")));
 
   // Re-installing over an untouched copy refreshes everything, table included.
@@ -151,13 +159,13 @@ test("install never overwrites a directory s1 learn did not write", () => {
     pages: [PAGES[0]],
     now: "2026-01-02T00:00:00.000Z",
   });
-  assert.deepEqual(installStagedSkill(staged2, fresh), { keptSkillFile: false });
+  assert.deepEqual(installStagedSkill(staged2, fresh), { keptSkillFile: false, refreshedTable: false });
   assert.doesNotMatch(readFileSync(join(fresh, "SKILL.md"), "utf-8"), /guide-start-2\.md/);
   assert.equal(existsSync(join(fresh, "references/guide-start-2.md")), false);
 
   // An edited SKILL.md survives the next install.
   writeFileSync(join(fresh, "SKILL.md"), "edited in place\n");
-  assert.deepEqual(installStagedSkill(staged2, fresh), { keptSkillFile: true });
+  assert.deepEqual(installStagedSkill(staged2, fresh), { keptSkillFile: true, refreshedTable: false });
   assert.equal(readFileSync(join(fresh, "SKILL.md"), "utf-8"), "edited in place\n");
 
   const foreign = join(tempDir(), "someone-elses-skill");
@@ -188,4 +196,79 @@ test("site selection prefers the requested section and shallower pages", () => {
     "https://docs.example.com/guide/b",
     "https://docs.example.com/guide/a",
   ]);
+});
+
+test("the reference table names the path, so repeated titles stay distinct", () => {
+  const table = renderReferenceTable([
+    { file: "references/docs-api.md", url: "https://d.test/docs/api", title: "Overview", hash: "x" },
+    { file: "references/docs-cloud.md", url: "https://d.test/docs/cloud", title: "Overview", hash: "y" },
+  ]);
+  assert.match(table, /\| Overview \| \/docs\/api \| \[references\/docs-api\.md\]/);
+  assert.match(table, /\| Overview \| \/docs\/cloud \| \[references\/docs-cloud\.md\]/);
+});
+
+test("an edited SKILL.md keeps its prose but gets a refreshed table", () => {
+  const dir = tempDir();
+  writeSkillDirectory({
+    dir,
+    name: "docs-example",
+    source: "https://docs.example.com/guide",
+    mode: "site",
+    pages: PAGES,
+    now: "2026-01-01T00:00:00.000Z",
+  });
+
+  const authored = readFileSync(join(dir, "SKILL.md"), "utf-8").replace(
+    /^# docs-example$/m,
+    "# My own heading\n\nProse I wrote by hand."
+  );
+  writeFileSync(join(dir, "SKILL.md"), authored);
+
+  const refreshed = writeSkillDirectory({
+    dir,
+    name: "docs-example",
+    source: "https://docs.example.com/guide",
+    mode: "site",
+    pages: [PAGES[0]],
+    now: "2026-01-02T00:00:00.000Z",
+  });
+
+  assert.equal(refreshed.keptSkillFile, true);
+  assert.equal(refreshed.refreshedTable, true);
+  const after = readFileSync(join(dir, "SKILL.md"), "utf-8");
+  assert.match(after, /Prose I wrote by hand\./);
+  assert.doesNotMatch(after, /guide-start-2\.md/);
+});
+
+test("splicing a table into a file without markers is refused", () => {
+  assert.equal(spliceReferenceTable("no markers here\n", "table"), null);
+});
+
+test("links are pulled out of crawled markdown and kept to the same origin", () => {
+  const markdown = [
+    "See [auth](https://d.test/docs/api/authentication) and",
+    "[relative](/docs/api/websites) and [same page](#top).",
+    "External [repo](https://github.com/x/y), autolink <https://d.test/docs/api/me>,",
+    "duplicate [again](https://d.test/docs/api/authentication).",
+    "Titled [link](https://d.test/docs/api/events \"Events\").",
+  ].join("\n");
+
+  assert.deepEqual(extractLinks(markdown, "https://d.test/docs/api"), [
+    "https://d.test/docs/api/authentication",
+    "https://d.test/docs/api/websites",
+    "https://d.test/docs/api/events",
+    "https://d.test/docs/api/me",
+  ]);
+});
+
+test("a page that links below its own path is a section index", () => {
+  assert.equal(
+    isSectionIndex("https://d.test/docs/api", ["https://d.test/docs/api/authentication"]),
+    true
+  );
+  assert.equal(
+    isSectionIndex("https://d.test/docs/api", ["https://d.test/docs/cloud/api-key"]),
+    false
+  );
+  assert.equal(isSectionIndex("https://d.test/", ["https://d.test/docs"]), false);
 });

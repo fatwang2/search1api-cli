@@ -126,6 +126,7 @@ Turn a URL into an installable Agent Skill directory.
 s1 learn https://example.com/guide              # one page, 1 credit
 s1 learn https://example.com/docs --site        # the site, ~1 credit per page
 s1 learn https://example.com/docs --site --max-pages 40
+s1 learn https://example.com/docs --site --depth 2   # follow links the sitemap missed
 s1 learn --from <staged dir> --install project  # install what was already learned
 ```
 
@@ -140,6 +141,7 @@ s1 learn --from <staged dir> --install project  # install what was already learn
 |---|---|---|
 | `--site` | Learn the whole site instead of the single page | off |
 | `--max-pages <N>` | Page cap in `--site` mode | 20 |
+| `--depth <N>` | In `--site` mode, also follow links found in the pages learned | 1 |
 | `--name <name>` | Skill directory name | derived from the host |
 | `--out <dir>` | Where to write the directory | staging dir under the cache |
 | `--from <dir>` | Install an already-learned directory instead of crawling | |
