@@ -1,6 +1,6 @@
 # search1api-cli
 
-Command-line interface for [Search1API](https://s1.dev) — web search, news, crawl, sitemap, and trending from your terminal.
+Command-line interface for [Search1API](https://s1.dev) — web search, news, crawl, sitemap, trending, and turning a URL into an Agent Skill, from your terminal.
 
 ## Installation
 
@@ -117,6 +117,94 @@ Get related links from a website.
 ```bash
 s1 sitemap https://example.com
 ```
+
+### learn
+
+Turn a URL into an installable Agent Skill directory.
+
+```bash
+s1 learn https://example.com/guide --name example-setup       # one page
+s1 learn https://example.com/docs --site --discover           # what would be learned, crawls nothing
+s1 learn https://example.com/docs --site --name example-api   # crawl and stage
+s1 learn https://example.com/docs --site --exclude /docs/cloud --name example-api
+s1 learn --from <staged dir> --install project                # install, no crawl
+s1 learn --from <staged dir> --install global --name better-name   # install under a new name
+s1 learn --refresh ~/.agents/skills/example-api                # relearn, same source and scope
+s1 learn --validate ~/.agents/skills/example-api              # static checks, exit 1 on errors
+```
+
+```
+<name>/
+  SKILL.md                 # routing layer: when to use, what is in references/
+  references/*.md          # page content with title/url frontmatter
+  references/sources.json  # source URLs, hashes, and any pages that failed
+```
+
+| Option | Description | Default |
+|---|---|---|
+| `--name <name>` | **Required.** You choose it; the CLI never derives one | |
+| `--site` | Learn everything under the URL's path, not just that page | off |
+| `--discover` | With `--site`: print the section breakdown and stop | off |
+| `--exclude <paths...>` | Path prefixes to leave out | |
+| `--max-pages <N>` | Safety valve, not a knob to tune | 500 |
+| `--out <dir>` | Where to write the directory | staging dir under the cache |
+| `--from <dir>` | Install an already-learned directory instead of crawling | |
+| `--refresh <dir>` | Relearn using the source, mode and `--exclude` it recorded | |
+| `--validate <dir>` | Report problems in a learned directory | |
+| `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
+| `--json` | Output raw JSON | |
+
+`--site` reads the site's published sitemap in one call and keeps what lives
+under the URL you pointed at — the docs root gets everything, `/docs/api` gets
+just that section — so the page count comes from the site rather than from a
+budget you have to guess. `--discover` shows that breakdown first.
+
+One run produces one skill, and one bundle per documentation set is the default.
+Point at a single section only when that section is plainly its own job; before
+crawling you only have URLs, and grouping pages by their slugs guesses wrong on
+the pages that matter.
+
+Nothing is installed unless `--install` is passed, and a directory `s1 learn`
+did not create is never overwritten. Relearning the same URL rewrites
+`references/`, reports what changed, and keeps a `SKILL.md` you have edited.
+
+Installing writes the skill to the store (`~/.agents/skills/<name>`) **and links
+it into the agent directories that already exist beside it** — `.claude/skills`,
+`.cursor/skills`, `.codex/skills` — because agents read their own directory, not
+the store. The output names every link it made, and says so when it found none:
+
+```
+$ s1 learn --from ~/.cache/search1api/learn/example-api --install global
+example-api installed to /Users/you/.agents/skills/example-api
+Linked into /Users/you/.claude/skills/example-api, /Users/you/.codex/skills/example-api
+```
+
+It never creates a directory for a tool you have not set up, and never replaces
+an entry that is already there.
+
+**A freshly learned skill is not usable yet.** `s1 learn` writes a placeholder
+description, and an agent will not select a skill that still carries it — the
+command says so when it finishes, and `--validate` fails with a non-zero exit:
+
+```
+$ s1 learn --validate ~/.agents/skills/example-api
+error  SKILL.md still has the generated description, so this skill will not trigger.
+```
+
+Rewrite the description to name the topics the skill answers, and turn the
+generated page list into a routing table, before calling it done.
+
+`--name` on install renames the folder, the frontmatter and `sources.json`
+together, so you can learn under a working name and settle on the real one after
+reading what the pages actually contain.
+
+`--exclude` drops whole path prefixes, but a section is not automatically one
+thing: umami's `/docs/guides` holds 21 hosting guides and 11 core how-tos.
+Point `--discover` at a section before excluding it.
+
+Page content is written straight to disk. The command prints a summary, and
+`--json` lists only `file`, `url`, and `title` per page — so learning a large
+site does not push its text through the agent that ran it.
 
 ### trending
 
@@ -278,6 +366,7 @@ Once installed, you can ask the host agent things like:
 - "what does this link say? https://example.com"
 - "what's trending on GitHub?"
 - "research quantum computing thoroughly"
+- "learn these docs so you can use them later"
 
 The plugin uses the hosted Search1API MCP tools and the shared research skill;
 the `s1` CLI remains available as a fallback where supported.

@@ -8,7 +8,7 @@ export interface RequestOptions {
 
 export async function request<T>(
   path: string,
-  body: Record<string, unknown>,
+  body: unknown,
   options: RequestOptions = {}
 ): Promise<T> {
   const url = `${API_BASE}${path}`;

@@ -67,11 +67,19 @@ export interface CrawlResult {
 }
 
 export interface CrawlResponse {
+  crawlParameters?: { url: string };
   results: CrawlResult;
 }
 
 export interface SitemapResponse {
   links: string[];
+}
+
+export type SitemapType = "sitemap" | "all";
+
+export interface SitemapOptions extends RequestOptions {
+  /** `sitemap` reads sitemap.xml; `all` follows the links found on the page. */
+  type?: SitemapType;
 }
 
 export interface TrendingResult {
@@ -136,9 +144,27 @@ export async function crawl(
 
 export async function sitemap(
   url: string,
-  options: RequestOptions = {}
+  options: SitemapOptions = {}
 ): Promise<SitemapResponse> {
-  return request<SitemapResponse>("/sitemap", { url }, options);
+  const body: Record<string, unknown> = { url };
+  if (options.type) body.type = options.type;
+  return request<SitemapResponse>("/sitemap", body, options);
+}
+
+/**
+ * Crawl several URLs in one request. Billed per URL, same as calling `crawl`
+ * once per page, but with a single round trip.
+ */
+export async function crawlBatch(
+  urls: string[],
+  options: RequestOptions = {}
+): Promise<CrawlResponse[]> {
+  if (!urls.length) return [];
+  return request<CrawlResponse[]>(
+    "/crawl",
+    urls.map((url) => ({ url })),
+    options
+  );
 }
 
 export async function trending(

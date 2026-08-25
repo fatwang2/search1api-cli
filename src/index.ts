@@ -31,6 +31,7 @@ if (isBinary && notifier.update) {
 import { registerNewsCommand } from "./commands/news.js";
 import { registerCrawlCommand } from "./commands/crawl.js";
 import { registerSitemapCommand } from "./commands/sitemap.js";
+import { registerLearnCommand } from "./commands/learn.js";
 import { registerTrendingCommand } from "./commands/trending.js";
 import { registerConfigCommand } from "./commands/config.js";
 import { registerUsageCommand } from "./commands/usage.js";
@@ -41,13 +42,14 @@ const program = new Command();
 
 program
   .name("search1api")
-  .description("CLI for Search1API - search, news, crawl, sitemap & trending")
+  .description("CLI for Search1API - search, news, crawl, sitemap, learn & trending")
   .version(pkg.version);
 
 registerSearchCommand(program);
 registerNewsCommand(program);
 registerCrawlCommand(program);
 registerSitemapCommand(program);
+registerLearnCommand(program);
 registerTrendingCommand(program);
 registerUsageCommand(program);
 registerLoginCommand(program);
@@ -63,6 +65,7 @@ if (process.argv.length <= 2) {
     ${chalk.blue("s1 search")} ${chalk.dim('"your query"')}        Search the web
     ${chalk.blue("s1 news")} ${chalk.dim('"your query"')}          Search for news
     ${chalk.blue("s1 crawl")} ${chalk.dim("<url>")}               Extract content from a URL
+    ${chalk.blue("s1 learn")} ${chalk.dim("<url>")}               Turn a URL into an Agent Skill
     ${chalk.blue("s1 trending")} ${chalk.dim("<service>")}         Trending on GitHub / HackerNews
     ${chalk.blue("s1 balance")}                    Check remaining credits
 

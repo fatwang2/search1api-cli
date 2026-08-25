@@ -18,7 +18,7 @@
     "s1": "./dist/index.js"
   },
   "scripts": {
-    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",
     "test": "npm run build && node --test tests/*.test.mjs",
     "test:oauth:e2e": "npm run build && node --test tests/oauth-e2e.test.mjs",
     "dev": "tsc --watch",
