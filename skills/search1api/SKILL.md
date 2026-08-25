@@ -279,9 +279,13 @@ breath as the crawl.
    nothing and returns the section breakdown and the page count.
 3. Choose a name from what you saw (see naming above) and report the plan: name,
    sections, and page count.
-4. If a section clearly does not belong — Cloud docs for a self-hosted user,
-   contributor guides for an API consumer — offer `--exclude <path>`. Excluding a
-   section is a decision the user can make from the tree; a page budget is not.
+4. Ask which flavour applies before excluding anything, because most doc sets
+   carry a section that is dead weight for half their readers. The usual splits:
+   hosted versus self-hosted (`/docs/cloud`), one platform's deploy guide out of
+   twenty, contributor and governance pages, changelogs. Name the candidates you
+   can see in the tree and let the user pick — excluding a whole section is a
+   decision they can make from paths alone. Do not go finer than a section: which
+   individual pages belong together is not knowable until they are crawled.
 5. Run `s1 learn <url> --site --name <name> --json`. It writes to a staging
    directory and installs nothing.
 6. Tell the user what it captured and where it is, then ask: globally
@@ -292,7 +296,12 @@ breath as the crawl.
    further requests.
 8. Author the `SKILL.md` routing layer under the rules above. An existing
    directory `s1 learn` did not create is never overwritten.
-9. Run `s1 learn --validate <installed dir>` and fix what it reports. It checks
+9. Rewrite the description before calling it done. `s1 learn` leaves a
+   placeholder, and a skill carrying it will not be selected by an agent — the
+   command says so, and `--validate` fails on it. Installing also links the skill
+   into the agent directories that already exist next to the store; the output
+   names them, and says so when it found none.
+10. Run `s1 learn --validate <installed dir>` and fix what it reports. It checks
    that the name agrees everywhere, that every recorded page is on disk, and
    that every `references/…` link in your routing table resolves. It cannot
    check whether a claim you wrote is true — that is what the sourcing rule

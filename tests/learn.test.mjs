@@ -6,6 +6,8 @@ import test from "node:test";
 
 const {
   applySkillName,
+  bindInstalledSkill,
+  hasPlaceholderDescription,
   diffAgainstPrevious,
   installStagedSkill,
   isLearnedDirectory,
@@ -24,6 +26,18 @@ const {
 
 function tempDir() {
   return mkdtempSync(join(tmpdir(), "s1-learn-"));
+}
+
+/** Stand in for the authoring step: replace the generated description. */
+function authorDescription(dir) {
+  const path = join(dir, "SKILL.md");
+  writeFileSync(
+    path,
+    readFileSync(path, "utf-8").replace(
+      /description: >[\s\S]*?\n---/,
+      "description: Real triggers written by the agent.\n---"
+    )
+  );
 }
 
 const PAGES = [
@@ -316,6 +330,13 @@ test("renaming keeps the folder, frontmatter and sources.json in agreement", () 
   // The generated body names the skill in its heading, and that is the user's
   // prose to fix — but they have to be told.
   assert.equal(bodyMentionsOldName, true);
+
+  // The generated description is an error until someone writes a real one.
+  assert.match(
+    validateSkillDirectory(installed).errors.join(" "),
+    /will not trigger/
+  );
+  authorDescription(installed);
   assert.deepEqual(validateSkillDirectory(installed).errors, []);
 });
 
@@ -348,6 +369,7 @@ test("validation catches a routing table that points at nothing", () => {
     failed: ["https://docs.example.com/guide/broken"],
     now: "2026-01-01T00:00:00.000Z",
   });
+  authorDescription(dir);
   assert.deepEqual(validateSkillDirectory(dir).errors, []);
   // A failed page is a gap, not a defect: warn, do not fail.
   assert.match(validateSkillDirectory(dir).warnings.join(" "), /1 page\(s\) failed/);
@@ -367,4 +389,61 @@ test("validation catches a routing table that points at nothing", () => {
     validateSkillDirectory(join(tempDir(), "not-a-skill")).errors[0],
     /not produced by s1 learn/
   );
+});
+
+test("a skill that cannot trigger is an error, not a warning", () => {
+  const dir = join(tempDir(), "docs-example");
+  mkdirSync(dir, { recursive: true });
+  writeSkillDirectory({
+    dir,
+    name: "docs-example",
+    source: "https://docs.example.com/guide",
+    mode: "site",
+    pages: PAGES,
+    now: "2026-01-01T00:00:00.000Z",
+  });
+
+  assert.equal(hasPlaceholderDescription(dir), true);
+  const before = validateSkillDirectory(dir);
+  assert.ok(before.errors.some((e) => /will not trigger/.test(e)));
+
+  authorDescription(dir);
+  assert.equal(hasPlaceholderDescription(dir), false);
+  assert.deepEqual(validateSkillDirectory(dir).errors, []);
+});
+
+test("installing links the skill into agent directories that exist", () => {
+  const home = tempDir();
+  const store = join(home, ".agents", "skills", "docs-example");
+  mkdirSync(store, { recursive: true });
+  mkdirSync(join(home, ".claude", "skills"), { recursive: true });
+  // .cursor/skills deliberately absent: we never create a directory for a tool
+  // the user has not set up.
+
+  const previousCwd = process.cwd();
+  process.chdir(home);
+  try {
+    // macOS resolves /var to /private/var, so anchor on the resolved cwd.
+    const root = process.cwd();
+    const link = join(root, ".claude", "skills", "docs-example");
+
+    const bindings = bindInstalledSkill("project", "docs-example", store);
+    assert.equal(bindings.length, 1);
+    assert.equal(bindings[0].linked, true);
+    assert.equal(bindings[0].path, link);
+    assert.equal(existsSync(join(root, ".cursor", "skills")), false);
+
+    // Running again is idempotent, and never replaces someone else's entry.
+    assert.deepEqual(bindInstalledSkill("project", "docs-example", store), [
+      { path: link, linked: true, reason: "already linked" },
+    ]);
+
+    rmSync(link);
+    writeFileSync(link, "someone else\n");
+    const blocked = bindInstalledSkill("project", "docs-example", store);
+    assert.equal(blocked[0].linked, false);
+    assert.match(blocked[0].reason, /already there/);
+  } finally {
+    process.chdir(previousCwd);
+  }
 });

@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { crawl, crawlBatch, sitemap, type CrawlResponse } from "../sdk.js";
 import {
   applySkillName,
+  bindInstalledSkill,
+  hasPlaceholderDescription,
   installDirectory,
   installStagedSkill,
   isLearnedDirectory,
@@ -17,6 +19,7 @@ import {
   writeSkillDirectory,
   type InstallScope,
   type LearnedPage,
+  type Binding,
   type LearnMode,
   type RefreshDiff,
 } from "../learn.js";
@@ -85,6 +88,13 @@ async function crawlUrls(
         stillFailed.push(url);
       }
     }
+    const recovered = failed.length - stillFailed.length;
+    log(
+      chalk.dim(
+        `Retry recovered ${recovered} of ${failed.length}` +
+          (stillFailed.length ? `; ${stillFailed.length} still failing` : "")
+      )
+    );
     return { pages, failed: stillFailed };
   }
 
@@ -108,6 +118,37 @@ async function discoverSite(
   }
 
   return { selection, sections: summarizeSections(selection.urls, url) };
+}
+
+/** Writing the store is not the same as an agent being able to find it. */
+function reportBindings(bindings: Binding[]): void {
+  const linked = bindings.filter((binding) => binding.linked);
+  const blocked = bindings.filter((binding) => !binding.linked);
+
+  if (linked.length) {
+    console.log(chalk.dim(`Linked into ${linked.map((binding) => binding.path).join(", ")}`));
+  }
+  for (const binding of blocked) {
+    console.log(chalk.yellow(`Not linked into ${binding.path}: ${binding.reason}`));
+  }
+  if (!bindings.length) {
+    console.log(
+      chalk.yellow(
+        "No agent skill directory was found next to it, so no agent can see this yet."
+      )
+    );
+  }
+}
+
+function reportNextSteps(dir: string): void {
+  if (hasPlaceholderDescription(dir)) {
+    console.log(
+      chalk.yellow(
+        "SKILL.md still has the generated description, so agents will not reliably pick this skill. Rewrite it to name the topics it answers."
+      )
+    );
+  }
+  console.log(chalk.dim(`Check it with: s1 learn --validate ${dir}`));
 }
 
 function reportDiff(diff: RefreshDiff | null): void {
@@ -191,13 +232,23 @@ export function registerLearnCommand(program: Command): void {
 
         const target = installDirectory(scope, name);
         const { keptSkillFile, refreshedTable } = installStagedSkill(source, target);
-        // skm requires the folder basename and the frontmatter name to agree.
+        // The folder basename and the frontmatter name must agree.
         const { bodyMentionsOldName } = renaming
           ? applySkillName(target, name)
           : { bodyMentionsOldName: false };
+        const bindings = bindInstalledSkill(scope, name, target);
 
         if (opts.json) {
-          printJson({ name, dir: target, installed: scope, keptSkillFile, refreshedTable, renamed: renaming });
+          printJson({
+            name,
+            dir: target,
+            installed: scope,
+            keptSkillFile,
+            refreshedTable,
+            renamed: renaming,
+            bindings,
+            placeholderDescription: hasPlaceholderDescription(target),
+          });
         } else {
           console.log(`${chalk.bold.blue(name)} installed to ${target}`);
           if (renaming) {
@@ -213,6 +264,8 @@ export function registerLearnCommand(program: Command): void {
               )
             );
           }
+          reportBindings(bindings);
+          reportNextSteps(target);
         }
         return;
       }
@@ -306,12 +359,14 @@ export function registerLearnCommand(program: Command): void {
       let installedTo: string | null = null;
       let installKeptSkill = false;
       let installRefreshedTable = false;
+      let bindings: Binding[] = [];
       if (scope) {
         const destination = installDirectory(scope, name!);
         const installed = installStagedSkill(dir, destination);
         installKeptSkill = installed.keptSkillFile;
         installRefreshedTable = installed.refreshedTable;
         installedTo = destination;
+        bindings = bindInstalledSkill(scope, name!, destination);
       }
 
       if (opts.json) {
@@ -327,6 +382,8 @@ export function registerLearnCommand(program: Command): void {
           keptSkillFile: written.keptSkillFile || installKeptSkill,
           refreshedTable: written.refreshedTable || installRefreshedTable,
           diff: written.diff,
+          bindings,
+          placeholderDescription: hasPlaceholderDescription(installedTo ?? dir),
           pages: written.entries.map(({ file, url: pageUrl, title }) => ({ file, url: pageUrl, title })),
           failed,
         });
@@ -352,8 +409,11 @@ export function registerLearnCommand(program: Command): void {
 
       if (installedTo) {
         console.log(chalk.green(`Installed to ${installedTo}`));
+        reportBindings(bindings);
+        reportNextSteps(installedTo);
         return;
       }
+      reportNextSteps(dir);
       console.log();
       console.log("Not installed yet. Once the user confirms, run one of:");
       console.log(`  ${chalk.blue(`s1 learn --from ${dir} --install project`)}`);

@@ -2,10 +2,13 @@ import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -356,10 +359,15 @@ export interface ValidationReport {
   failed: string[];
 }
 
-const PLACEHOLDER_MARKERS = [
-  "Edit\n  this description",
-  "Reference material captured from",
-];
+const PLACEHOLDER_DESCRIPTION = "this description so it names the topics";
+const PLACEHOLDER_BODY = "Reference material learned from";
+
+/** True while SKILL.md still carries the generated description. */
+export function hasPlaceholderDescription(dir: string): boolean {
+  const path = join(dir, "SKILL.md");
+  if (!existsSync(path)) return false;
+  return readFileSync(path, "utf-8").includes(PLACEHOLDER_DESCRIPTION);
+}
 
 /**
  * Static checks only. Nothing here can tell whether an authored claim is true —
@@ -398,11 +406,15 @@ export function validateSkillDirectory(dir: string): ValidationReport {
     errors.push(`SKILL.md declares name "${declared}" but sources.json records "${sources.name}".`);
   }
   if (!/^description:/m.test(skill)) errors.push("SKILL.md frontmatter has no description.");
-  for (const marker of PLACEHOLDER_MARKERS) {
-    if (skill.includes(marker)) {
-      warnings.push("SKILL.md still contains generated placeholder wording; write the real triggers.");
-      break;
-    }
+  // A skill whose description is still the placeholder will not be selected by
+  // an agent. That is not an imperfection; the skill does not work.
+  if (skill.includes(PLACEHOLDER_DESCRIPTION)) {
+    errors.push(
+      "SKILL.md still has the generated description, so this skill will not trigger. Rewrite it to name the topics it should answer."
+    );
+  }
+  if (skill.includes(PLACEHOLDER_BODY)) {
+    warnings.push("SKILL.md still contains generated boilerplate prose; replace it with real routing.");
   }
   if (!skill.includes(TABLE_START) || !skill.includes(TABLE_END)) {
     warnings.push("The reference table markers are gone; a refresh can no longer update the table in place.");
@@ -457,6 +469,64 @@ export function installDirectory(scope: InstallScope, name: string): string {
  * Copy a staged skill into place. An existing directory we did not write is
  * never touched; one we did write keeps its (possibly edited) SKILL.md.
  */
+/**
+ * Where each agent looks for skills. `~/.agents/skills` is the store; agents
+ * reach it through a link of their own, so writing the store alone leaves the
+ * skill invisible to them.
+ */
+const AGENT_SKILL_DIRS = [".claude/skills", ".cursor/skills", ".codex/skills"];
+
+export interface Binding {
+  path: string;
+  linked: boolean;
+  reason?: string;
+}
+
+/**
+ * Link an installed skill into the agent directories that already exist. Never
+ * creates one that does not — that would be guessing at tools the user has not
+ * set up — and never replaces an entry that is already there.
+ */
+export function bindInstalledSkill(
+  scope: InstallScope,
+  name: string,
+  target: string
+): Binding[] {
+  const root = scope === "global" ? homedir() : process.cwd();
+  const bindings: Binding[] = [];
+
+  for (const relative of AGENT_SKILL_DIRS) {
+    const directory = join(root, relative);
+    if (!existsSync(directory)) continue;
+    const entry = join(directory, name);
+
+    if (existsSync(entry) || isSymlink(entry)) {
+      const alreadyOurs = isSymlink(entry) && readlinkSync(entry) === target;
+      bindings.push({
+        path: entry,
+        linked: alreadyOurs,
+        reason: alreadyOurs ? "already linked" : "something else is already there",
+      });
+      continue;
+    }
+    try {
+      symlinkSync(target, entry);
+      bindings.push({ path: entry, linked: true });
+    } catch (error) {
+      bindings.push({ path: entry, linked: false, reason: (error as Error).message });
+    }
+  }
+  return bindings;
+}
+
+function isSymlink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 export function installStagedSkill(
   from: string,
   to: string
