@@ -128,6 +128,9 @@ s1 learn https://example.com/docs --site --discover           # what would be le
 s1 learn https://example.com/docs --site --name example-api   # crawl and stage
 s1 learn https://example.com/docs --site --exclude /docs/cloud --name example-api
 s1 learn --from <staged dir> --install project                # install, no crawl
+s1 learn --from <staged dir> --install global --name better-name   # install under a new name
+s1 learn --refresh ~/.agents/skills/example-api                # relearn, same source and scope
+s1 learn --validate ~/.agents/skills/example-api              # static checks, exit 1 on errors
 ```
 
 ```
@@ -146,6 +149,8 @@ s1 learn --from <staged dir> --install project                # install, no craw
 | `--max-pages <N>` | Safety valve, not a knob to tune | 500 |
 | `--out <dir>` | Where to write the directory | staging dir under the cache |
 | `--from <dir>` | Install an already-learned directory instead of crawling | |
+| `--refresh <dir>` | Relearn using the source, mode and `--exclude` it recorded | |
+| `--validate <dir>` | Report problems in a learned directory | |
 | `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
 | `--json` | Output raw JSON | |
 
@@ -157,6 +162,10 @@ budget you have to guess. `--discover` shows that breakdown first.
 Nothing is installed unless `--install` is passed, and a directory `s1 learn`
 did not create is never overwritten. Relearning the same URL rewrites
 `references/`, reports what changed, and keeps a `SKILL.md` you have edited.
+
+`--name` on install renames the folder, the frontmatter and `sources.json`
+together, so you can learn under a working name and settle on the real one after
+reading the page titles.
 
 Page content is written straight to disk. The command prints a summary, and
 `--json` lists only `file`, `url`, and `title` per page — so learning a large

@@ -155,7 +155,9 @@ Services: github, hackernews.
 ```bash
 s1 learn <url> --name <name> [--site] [--exclude <paths...>] [--out <dir>]
 s1 learn <url> --site --discover          # list what would be learned; crawls nothing
-s1 learn --from <dir> --install <global|project>
+s1 learn --from <dir> --install <global|project> [--name <new-name>]
+s1 learn --refresh <dir>                  # relearn using the source and scope it recorded
+s1 learn --validate <dir>                 # static checks on a learned directory
 ```
 
 Turns a URL into an Agent Skill directory:
@@ -176,6 +178,8 @@ Turns a URL into an Agent Skill directory:
 | `--max-pages <N>` | Safety valve, not a knob to tune | 500 |
 | `--out <dir>` | Where to write it | staging dir under the cache |
 | `--from <dir>` | Install an already-learned directory (no crawl) | |
+| `--refresh <dir>` | Relearn using the source, mode and `--exclude` it recorded | |
+| `--validate <dir>` | Report problems in a learned directory, exit 1 on errors | |
 | `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
 | `--json` | Raw JSON output | |
 
@@ -185,6 +189,19 @@ family of skills instead of one broad one — point at each section in turn.
 
 `--discover` crawls nothing; it only reads what the site publishes, so use it
 to size a job before running it.
+
+#### Name it after you have seen it
+
+`--discover` gives you paths, not titles, and titles are what tell you whether a
+bundle is one job or four. When a site is unfamiliar, learn it under a working
+name, read the titles in `references/sources.json`, then rename on install:
+
+```bash
+s1 learn --from <staged dir> --name <real-name> --install global
+```
+
+That rewrites the folder, the frontmatter and `sources.json` together, and warns
+you if the body still mentions the old name.
 
 #### Naming is yours to choose
 
@@ -261,6 +278,11 @@ breath as the crawl.
    further requests.
 8. Author the `SKILL.md` routing layer under the rules above. An existing
    directory `s1 learn` did not create is never overwritten.
+9. Run `s1 learn --validate <installed dir>` and fix what it reports. It checks
+   that the name agrees everywhere, that every recorded page is on disk, and
+   that every `references/…` link in your routing table resolves. It cannot
+   check whether a claim you wrote is true — that is what the sourcing rule
+   above is for.
 
 If pages failed, they are listed in the output and recorded in
 `references/sources.json`. Say which ones, so the user knows what the skill is

@@ -3,6 +3,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -32,6 +33,8 @@ export interface Sources {
   source: string;
   mode: LearnMode;
   learnedAt: string;
+  /** Path prefixes left out, so a refresh keeps the same scope. */
+  exclude?: string[];
   pages: SourceEntry[];
   /** URLs that were selected but could not be crawled, so a refresh can retry
    *  them and the gap is visible instead of silent. */
@@ -252,9 +255,10 @@ export function writeSkillDirectory(options: {
   mode: LearnMode;
   pages: LearnedPage[];
   failed?: string[];
+  exclude?: string[];
   now?: string;
 }): WriteResult {
-  const { dir, name, source, mode, pages, failed = [] } = options;
+  const { dir, name, source, mode, pages, failed = [], exclude = [] } = options;
   const previous = readSources(dir);
   const entries = buildEntries(pages);
 
@@ -284,6 +288,7 @@ export function writeSkillDirectory(options: {
     source,
     mode,
     learnedAt: options.now ?? new Date().toISOString(),
+    ...(exclude.length ? { exclude } : {}),
     pages: plain,
     ...(failed.length ? { failed } : {}),
   };
@@ -312,6 +317,127 @@ export function writeSkillDirectory(options: {
     removed,
     diff: diffAgainstPrevious(previous, plain),
   };
+}
+
+/** Read the record a previous run left, or null when the directory is not ours. */
+export function readSkillSources(dir: string): Sources | null {
+  return readSources(dir);
+}
+
+/**
+ * skm requires the folder basename and the frontmatter `name` to match, so a
+ * rename has to touch both. Only the frontmatter line is rewritten — the rest
+ * of an authored SKILL.md belongs to whoever wrote it.
+ */
+export function applySkillName(dir: string, name: string): { bodyMentionsOldName: boolean } {
+  const sources = readSources(dir);
+  const previousName = sources?.name;
+  if (sources) {
+    sources.name = name;
+    writeFileSync(join(dir, SOURCES_FILE), `${JSON.stringify(sources, null, 2)}\n`);
+  }
+
+  const skillPath = join(dir, "SKILL.md");
+  if (!existsSync(skillPath)) return { bodyMentionsOldName: false };
+  const current = readFileSync(skillPath, "utf-8");
+  const renamed = current.replace(/^name:[^\n]*$/m, `name: ${name}`);
+  writeFileSync(skillPath, renamed);
+
+  const body = renamed.replace(/^name:[^\n]*$/m, "");
+  return {
+    bodyMentionsOldName: Boolean(previousName && previousName !== name && body.includes(previousName)),
+  };
+}
+
+export interface ValidationReport {
+  errors: string[];
+  warnings: string[];
+  pages: number;
+  failed: string[];
+}
+
+const PLACEHOLDER_MARKERS = [
+  "Edit\n  this description",
+  "Reference material captured from",
+];
+
+/**
+ * Static checks only. Nothing here can tell whether an authored claim is true —
+ * that is what the sourcing rule in the skill is for — but it does catch a
+ * routing table that points at files which are not there.
+ */
+export function validateSkillDirectory(dir: string): ValidationReport {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const sources = readSources(dir);
+  if (!sources) {
+    return {
+      errors: [`${dir} has no references/sources.json; it was not produced by s1 learn.`],
+      warnings,
+      pages: 0,
+      failed: [],
+    };
+  }
+
+  const skillPath = join(dir, "SKILL.md");
+  if (!existsSync(skillPath)) {
+    errors.push("SKILL.md is missing.");
+    return { errors, warnings, pages: sources.pages.length, failed: sources.failed ?? [] };
+  }
+  const skill = readFileSync(skillPath, "utf-8");
+
+  const basename = dir.replace(/\/+$/, "").split(/[/\\]/).pop() ?? "";
+  const declared = /^name:[ \t]*(\S+)[ \t]*$/m.exec(skill)?.[1];
+  const nameError = validateSkillName(declared ?? "");
+  if (nameError) errors.push(`SKILL.md frontmatter name: ${nameError}`);
+  if (declared && declared !== basename) {
+    errors.push(`SKILL.md declares name "${declared}" but the directory is "${basename}".`);
+  }
+  if (declared && declared !== sources.name) {
+    errors.push(`SKILL.md declares name "${declared}" but sources.json records "${sources.name}".`);
+  }
+  if (!/^description:/m.test(skill)) errors.push("SKILL.md frontmatter has no description.");
+  for (const marker of PLACEHOLDER_MARKERS) {
+    if (skill.includes(marker)) {
+      warnings.push("SKILL.md still contains generated placeholder wording; write the real triggers.");
+      break;
+    }
+  }
+  if (!skill.includes(TABLE_START) || !skill.includes(TABLE_END)) {
+    warnings.push("The reference table markers are gone; a refresh can no longer update the table in place.");
+  }
+
+  // Every recorded page is on disk, and nothing on disk is unrecorded.
+  const recorded = new Set(sources.pages.map((page) => page.file));
+  for (const page of sources.pages) {
+    if (!existsSync(join(dir, page.file))) errors.push(`${page.file} is recorded but missing.`);
+  }
+  const referencesDir = join(dir, "references");
+  if (existsSync(referencesDir)) {
+    for (const entry of readdirSync(referencesDir)) {
+      if (!entry.endsWith(".md")) continue;
+      if (!recorded.has(`references/${entry}`)) {
+        warnings.push(`references/${entry} is on disk but not recorded in sources.json.`);
+      }
+    }
+  }
+
+  // Links the routing layer points at must exist.
+  const linkPattern = /\((references\/[^)\s]+\.md)\)/g;
+  let match = linkPattern.exec(skill);
+  const missing = new Set<string>();
+  while (match !== null) {
+    if (!existsSync(join(dir, match[1]))) missing.add(match[1]);
+    match = linkPattern.exec(skill);
+  }
+  for (const file of missing) errors.push(`SKILL.md links ${file}, which does not exist.`);
+
+  if (sources.failed?.length) {
+    warnings.push(`${sources.failed.length} page(s) failed to crawl and are missing from this skill.`);
+  }
+
+  return { errors, warnings, pages: sources.pages.length, failed: sources.failed ?? [] };
 }
 
 export function stagingDirectory(name: string): string {

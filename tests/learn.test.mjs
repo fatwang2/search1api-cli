@@ -1,20 +1,23 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
 const {
+  applySkillName,
   diffAgainstPrevious,
   installStagedSkill,
   isLearnedDirectory,
   matchesExclude,
+  readSkillSources,
   referenceFilename,
   renderReference,
   renderReferenceTable,
   selectSiteUrls,
   spliceReferenceTable,
   summarizeSections,
+  validateSkillDirectory,
   validateSkillName,
   writeSkillDirectory,
 } = await import("../dist/learn.js");
@@ -286,4 +289,82 @@ test("failed URLs are recorded so the gap is visible", () => {
   });
   const sources = JSON.parse(readFileSync(join(dir, "references/sources.json"), "utf-8"));
   assert.deepEqual(sources.failed, ["https://docs.example.com/guide/broken"]);
+});
+
+test("renaming keeps the folder, frontmatter and sources.json in agreement", () => {
+  const staged = tempDir();
+  writeSkillDirectory({
+    dir: staged,
+    name: "docs-example",
+    source: "https://docs.example.com/guide",
+    mode: "site",
+    pages: PAGES,
+    now: "2026-01-01T00:00:00.000Z",
+  });
+
+  const installed = join(tempDir(), "example-write-guides");
+  installStagedSkill(staged, installed);
+  const { bodyMentionsOldName } = applySkillName(installed, "example-write-guides");
+
+  const skill = readFileSync(join(installed, "SKILL.md"), "utf-8");
+  assert.match(skill, /^name: example-write-guides$/m);
+  assert.doesNotMatch(skill, /^name: docs-example$/m);
+  assert.equal(
+    JSON.parse(readFileSync(join(installed, "references/sources.json"), "utf-8")).name,
+    "example-write-guides"
+  );
+  // The generated body names the skill in its heading, and that is the user's
+  // prose to fix — but they have to be told.
+  assert.equal(bodyMentionsOldName, true);
+  assert.deepEqual(validateSkillDirectory(installed).errors, []);
+});
+
+test("the scope of a run is recorded so a refresh keeps it", () => {
+  const dir = tempDir();
+  writeSkillDirectory({
+    dir,
+    name: "docs-example",
+    source: "https://docs.example.com/guide",
+    mode: "site",
+    pages: PAGES,
+    exclude: ["/guide/cloud"],
+    now: "2026-01-01T00:00:00.000Z",
+  });
+  const sources = readSkillSources(dir);
+  assert.deepEqual(sources.exclude, ["/guide/cloud"]);
+  assert.equal(sources.source, "https://docs.example.com/guide");
+  assert.equal(sources.mode, "site");
+});
+
+test("validation catches a routing table that points at nothing", () => {
+  const dir = join(tempDir(), "docs-example");
+  mkdirSync(dir, { recursive: true });
+  writeSkillDirectory({
+    dir,
+    name: "docs-example",
+    source: "https://docs.example.com/guide",
+    mode: "site",
+    pages: PAGES,
+    failed: ["https://docs.example.com/guide/broken"],
+    now: "2026-01-01T00:00:00.000Z",
+  });
+  assert.deepEqual(validateSkillDirectory(dir).errors, []);
+  // A failed page is a gap, not a defect: warn, do not fail.
+  assert.match(validateSkillDirectory(dir).warnings.join(" "), /1 page\(s\) failed/);
+
+  writeFileSync(
+    join(dir, "SKILL.md"),
+    readFileSync(join(dir, "SKILL.md"), "utf-8") +
+      "\nSee [references/does-not-exist.md](references/does-not-exist.md).\n"
+  );
+  rmSync(join(dir, "references/guide-start.md"));
+
+  const report = validateSkillDirectory(dir);
+  assert.ok(report.errors.some((e) => /does-not-exist\.md, which does not exist/.test(e)));
+  assert.ok(report.errors.some((e) => /guide-start\.md is recorded but missing/.test(e)));
+
+  assert.match(
+    validateSkillDirectory(join(tempDir(), "not-a-skill")).errors[0],
+    /not produced by s1 learn/
+  );
 });

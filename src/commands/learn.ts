@@ -4,12 +4,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { crawl, crawlBatch, sitemap, type CrawlResponse } from "../sdk.js";
 import {
+  applySkillName,
   installDirectory,
   installStagedSkill,
   isLearnedDirectory,
   selectSiteUrls,
   stagingDirectory,
+  readSkillSources,
   summarizeSections,
+  validateSkillDirectory,
   validateSkillName,
   writeSkillDirectory,
   type InstallScope,
@@ -128,18 +131,42 @@ export function registerLearnCommand(program: Command): void {
     .option("--max-pages <number>", `safety valve for --site`, String(MAX_PAGES_CEILING))
     .option("--out <dir>", "where to write the skill directory")
     .option("--from <dir>", "install an already-learned directory instead of crawling")
+    .option("--refresh <dir>", "relearn a directory using the source and scope it recorded")
+    .option("--validate <dir>", "check a learned directory and report problems")
     .option("--install <scope>", `install into ${INSTALL_SCOPES.join(" or ")} skills`)
     .option("--json", "output raw JSON")
     .action(async (url: string | undefined, opts) => {
+      if (opts.validate) {
+        const report = validateSkillDirectory(opts.validate as string);
+        if (opts.json) {
+          printJson({ dir: opts.validate, ok: report.errors.length === 0, ...report });
+        } else {
+          for (const error of report.errors) console.log(chalk.red(`error  ${error}`));
+          for (const warning of report.warnings) console.log(chalk.yellow(`warn   ${warning}`));
+          if (!report.errors.length && !report.warnings.length) {
+            console.log(chalk.green(`${report.pages} page(s), no problems found.`));
+          }
+          console.log(
+            chalk.dim(
+              "Static checks only — nothing here can tell whether a claim written into SKILL.md is true."
+            )
+          );
+        }
+        if (report.errors.length) process.exitCode = 1;
+        return;
+      }
+
       const scope: InstallScope | undefined = opts.install;
       if (scope && !INSTALL_SCOPES.includes(scope)) {
         throw new Error(`--install must be one of: ${INSTALL_SCOPES.join(", ")}`);
       }
-      if (!url && !opts.from) {
-        throw new Error("Provide a URL to learn, or --from <dir> to install a learned directory.");
+      if (!url && !opts.from && !opts.refresh) {
+        throw new Error(
+          "Provide a URL to learn, --refresh <dir> to relearn one, or --from <dir> to install one."
+        );
       }
-      if (url && opts.from) {
-        throw new Error("Use either a URL or --from <dir>, not both.");
+      if ([url, opts.from, opts.refresh].filter(Boolean).length > 1) {
+        throw new Error("Use only one of: a URL, --from <dir>, --refresh <dir>.");
       }
 
       const log = (message: string) => {
@@ -153,14 +180,32 @@ export function registerLearnCommand(program: Command): void {
           throw new Error(`${source} is not a skill directory produced by s1 learn.`);
         }
         if (!scope) throw new Error("--from also needs --install <global|project>.");
-        const sources = JSON.parse(readFileSync(join(source, "references/sources.json"), "utf-8"));
-        const name = (opts.name as string) ?? sources.name;
+        const sources = readSkillSources(source);
+        if (opts.name) {
+          const nameError = validateSkillName(opts.name as string);
+          if (nameError) throw new Error(`${nameError}\n${NAME_HELP}`);
+        }
+        const name = (opts.name as string) ?? sources?.name;
+        if (!name) throw new Error(`${source} records no name; pass --name.`);
+        const renaming = name !== sources?.name;
+
         const target = installDirectory(scope, name);
         const { keptSkillFile, refreshedTable } = installStagedSkill(source, target);
+        // skm requires the folder basename and the frontmatter name to agree.
+        const { bodyMentionsOldName } = renaming
+          ? applySkillName(target, name)
+          : { bodyMentionsOldName: false };
+
         if (opts.json) {
-          printJson({ name, dir: target, installed: scope, keptSkillFile, refreshedTable });
+          printJson({ name, dir: target, installed: scope, keptSkillFile, refreshedTable, renamed: renaming });
         } else {
           console.log(`${chalk.bold.blue(name)} installed to ${target}`);
+          if (renaming) {
+            console.log(chalk.dim(`Renamed from ${sources?.name}.`));
+            if (bodyMentionsOldName) {
+              console.log(chalk.yellow(`SKILL.md still mentions "${sources?.name}" in its body; update those by hand.`));
+            }
+          }
           if (keptSkillFile) {
             console.log(
               chalk.dim(
@@ -172,9 +217,15 @@ export function registerLearnCommand(program: Command): void {
         return;
       }
 
-      const target = url as string;
-      const mode: LearnMode = opts.site ? "site" : "page";
-      const exclude: string[] = opts.exclude ?? [];
+      // --refresh replays what a directory recorded: same source, scope and name.
+      const refreshing = opts.refresh ? readSkillSources(opts.refresh as string) : null;
+      if (opts.refresh && !refreshing) {
+        throw new Error(`${opts.refresh} is not a skill directory produced by s1 learn.`);
+      }
+
+      const target = (url as string) ?? refreshing!.source;
+      const mode: LearnMode = refreshing ? refreshing.mode : opts.site ? "site" : "page";
+      const exclude: string[] = opts.exclude ?? refreshing?.exclude ?? [];
       const maxPages = Number.parseInt(opts.maxPages, 10);
       if (!Number.isInteger(maxPages) || maxPages < 1) {
         throw new Error("--max-pages must be a positive integer.");
@@ -202,12 +253,12 @@ export function registerLearnCommand(program: Command): void {
 
       // The CLI never invents a name. A name derived from the host describes the
       // source document; the skill should be named for the job it does.
-      const name = opts.name as string | undefined;
+      const name = (opts.name as string | undefined) ?? refreshing?.name;
       const nameError = validateSkillName(name ?? "");
       if (nameError) {
         throw new Error(`${nameError}\n${NAME_HELP}`);
       }
-      const dir = (opts.out as string) ?? stagingDirectory(name!);
+      const dir = (opts.refresh as string) ?? (opts.out as string) ?? stagingDirectory(name!);
 
       let pages: LearnedPage[];
       let failed: string[] = [];
@@ -247,7 +298,10 @@ export function registerLearnCommand(program: Command): void {
         mode,
         pages,
         failed,
+        exclude,
       });
+
+      if (refreshing && name !== refreshing.name) applySkillName(dir, name!);
 
       let installedTo: string | null = null;
       let installKeptSkill = false;
