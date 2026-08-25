@@ -184,8 +184,20 @@ Turns a URL into an Agent Skill directory:
 | `--json` | Raw JSON output | |
 
 `--site` learns what lives **under the URL you point at**: the docs root gets
-the whole set, `/docs/api` gets just that section. That is how you produce a
-family of skills instead of one broad one — point at each section in turn.
+the whole set, `/docs/api` gets just that section.
+
+**One learn produces one skill, and one bundle per site is the default.** Do not
+split a documentation set you are meeting for the first time. Before crawling
+you know only the URLs, and grouping pages by their slugs is a guess that goes
+wrong on exactly the pages that matter: on umami's docs, `links`, `pixels` and
+`tags` read like reporting features and are all instrumentation. What a page
+actually covers is knowable only after it has been crawled — at which point you
+already hold one complete bundle, and its routing table does the routing that
+separate skills would have done.
+
+Point `--site` at a single section instead of the root only when that section is
+plainly its own job *and* you can already tell — a REST API reference under
+`/docs/api`, an SDK under `/sdk`. When in doubt, take the whole set.
 
 `--discover` crawls nothing; it only reads what the site publishes, so use it
 to size a job before running it.
@@ -206,14 +218,16 @@ you if the body still mentions the old name.
 #### Naming is yours to choose
 
 `s1 learn` will not invent a name. Name the **reusable job**, not the source
-document: `stripe-handle-webhooks`, not `stripe-docs`. A name that restates the
-product is barely better than the domain — if the only name you can think of is
-the product itself, the bundle probably covers several jobs and should be split.
-Point `--site` at each section and learn them as a family under one prefix:
-`umami-self-host`, `umami-track-events`, `umami-query-api`. Lowercase kebab-case, 64 characters or fewer, starting with a
-letter. Reuse the prefix of related skills the user already has (`ls
-~/.agents/skills`) rather than inventing a sibling namespace, and prefer an
-action-object phrase where the skill is about doing something. If a skill with
+document: `stripe-handle-webhooks`, not `stripe-docs`. Lowercase kebab-case, 64
+characters or fewer, starting with a letter. Reuse the prefix of related skills
+the user already has (`ls ~/.agents/skills`) rather than inventing a sibling
+namespace, and prefer an action-object phrase where the skill is about doing
+something.
+
+A whole documentation set is usually one job at the level that matters — "work
+with this product" — so a product-shaped name such as `umami-analytics` or
+`hono-build-api` is the right answer, not a fallback. Reach for a narrower name
+only when you deliberately learned a narrower scope. If a skill with
 that name already exists, compare the *job* — same job means refresh it, a
 different job means pick a narrower name. Never rename an installed skill
 silently.

@@ -159,6 +159,11 @@ under the URL you pointed at — the docs root gets everything, `/docs/api` gets
 just that section — so the page count comes from the site rather than from a
 budget you have to guess. `--discover` shows that breakdown first.
 
+One run produces one skill, and one bundle per documentation set is the default.
+Point at a single section only when that section is plainly its own job; before
+crawling you only have URLs, and grouping pages by their slugs guesses wrong on
+the pages that matter.
+
 Nothing is installed unless `--install` is passed, and a directory `s1 learn`
 did not create is never overwritten. Relearning the same URL rewrites
 `references/`, reports what changed, and keeps a `SKILL.md` you have edited.
