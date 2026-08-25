@@ -76,9 +76,10 @@ These look similar and are not:
   answer X" → **`crawl`**. One page, answer now, nothing written to disk.
 - "Learn this URL", "make a skill out of these docs", "记住这个文档" → **`learn`**.
   Produces an installable skill directory the user's agent can load later.
-- Only add **`--site`** when the user clearly means the whole site or section
-  ("learn the whole docs", "整站"). When the scope is unclear, run `--discover`
-  first and show the user what a full run would cover.
+- **Scope follows the request.** A single link is one page; a documentation set
+  ("learn these docs", "学一下 XX 文档") is `--site` pointed at its root — that
+  is the normal case, not an escalation. When it is genuinely unclear, run
+  `--discover` and show the user what a full run would cover.
 
 ## Dynamic tuning
 
@@ -272,51 +273,75 @@ Shows remaining API credits.
 
 ### Learning a URL into a skill
 
-The user must confirm before anything lands on disk. Never install in the same
-breath as the crawl.
+Nothing lands on disk until the user confirms, and nothing is installed until it
+is worth installing. Work in this order — scope decides coverage, coverage
+decides the name and the description, and all of that has to be settled before
+anything is installed.
 
-1. Decide the scope. Default to the single page. Only use `--site` when the user
-   means the whole site or section.
-2. For a site, run `s1 learn <url> --site --discover --json` first. It crawls
-   nothing and returns the section breakdown and the page count.
-3. Choose a name from what you saw (see naming above) and report the plan: name,
-   sections, and page count.
-4. Decide what to leave out, and check before you do. Most doc sets carry a
-   section that is dead weight for half their readers — hosted versus
-   self-hosted, one platform's deploy guide out of twenty, contributor and
-   governance pages, changelogs. Ask the user which flavour applies.
+**Plan**
+
+1. Settle the scope. "Read this link" is one page. "Learn these docs", "学一下
+   XX 文档" is the set: `--site`, pointed at the docs root. Point at a single
+   section instead only when the user asked for that section, or when that
+   section is plainly its own job.
+2. `s1 learn <url> --site --discover --json` — crawls nothing, returns the
+   section breakdown and every URL it would learn.
+3. Decide what to leave out. Most doc sets carry a section that is dead weight
+   for half their readers: hosted versus self-hosted, one platform's deploy
+   guide out of twenty, contributor and governance pages, changelogs. Ask the
+   user which flavour applies.
    **A section is not automatically homogeneous.** Before excluding one, look
-   inside it: `s1 learn <url-of-that-section> --site --discover` lists what it
-   holds. umami's `/docs/guides` is 33 pages of which 21 are hosting guides and
-   11 are core how-tos for tracking outbound links, form submissions, SPAs and
-   server-side events — excluding the section wholesale silently drops those.
-   When a section is mixed, either keep it or exclude the individual pages.
-   Whatever you exclude, say so in the description, so the skill declares its
-   own gaps.
-5. Run `s1 learn <url> --site --name <name> --json`. It writes to a staging
-   directory and installs nothing.
-6. Tell the user what it captured and where it is, then ask: globally
-   (`~/.agents/skills/`), in this project (`./.agents/skills/`), or leave it
-   staged.
-7. Only after they say yes, run
-   `s1 learn --from <staged dir> --install <global|project>`. It makes no
-   further requests.
-8. Author the `SKILL.md` routing layer under the rules above. An existing
-   directory `s1 learn` did not create is never overwritten.
-9. Rewrite the description before calling it done. `s1 learn` leaves a
-   placeholder, and a skill carrying it will not be selected by an agent — the
-   command says so, and `--validate` fails on it. Installing also links the skill
-   into the agent directories that already exist next to the store; the output
-   names them, and says so when it found none.
-10. Run `s1 learn --validate <installed dir>` and fix what it reports. It checks
-   that the name agrees everywhere, that every recorded page is on disk, and
-   that every `references/…` link in your routing table resolves. It cannot
-   check whether a claim you wrote is true — that is what the sourcing rule
-   above is for.
+   inside: `s1 learn <url-of-that-section> --site --discover`. umami's
+   `/docs/guides` is 33 pages of which 21 are hosting guides and 11 are core
+   how-tos for tracking outbound links, form submissions, SPAs and server-side
+   events — excluding it wholesale silently drops those. When a section is
+   mixed, either keep it or exclude the individual pages.
+4. `ls ~/.agents/skills` before naming. If something for this product already
+   exists, compare the *job*, not the name: the same job means refresh that
+   skill instead (step 10), a different job means the two names must say which
+   is which. Then choose the name (see naming above) and report the plan to the
+   user: name, sections, page count, and what you are excluding.
 
-If pages failed, they are listed in the output and recorded in
-`references/sources.json`. Say which ones, so the user knows what the skill is
-missing rather than assuming it is complete.
+**Learn and author**
+
+5. `s1 learn <url> --site --name <name> [--exclude <paths...>] --json`. It writes
+   to a staging directory and installs nothing.
+6. Author `SKILL.md` in the staging directory, before installing:
+   - a description that names the topics and trigger phrasing, and **states what
+     was excluded**, so the skill declares its own gaps;
+   - a routing table by task, not by directory, so the reader does not have to
+     understand the site's layout;
+   - facts only from files you have read, cited.
+7. `s1 learn --validate <staging dir>` and fix what it reports.
+
+**Install**
+
+8. Tell the user what it captured and where it is, then ask: globally
+   (`~/.agents/skills/`), in this project (`./.agents/skills/`), or leave it
+   staged for now.
+9. Only after they say yes: `s1 learn --from <staging dir> --install
+   <global|project>` — no further requests. Add `--name <name>` here to settle
+   on a different name; it rewrites the folder, the frontmatter and
+   `sources.json` together. Installing also links the skill into the agent
+   directories that already exist beside the store, and the output names them —
+   read that line, because a skill in the store that no agent is linked to is
+   invisible. Run `s1 learn --validate <installed dir>` afterwards too — if you
+   renamed on install, the installed copy is the only place the folder name and
+   the frontmatter can be checked against each other.
+
+**Maintain**
+
+10. Later, `s1 learn --refresh <dir>` relearns from the source, mode and
+    `--exclude` it recorded — no arguments to remember. Pass `--exclude` to
+    change the scope, and it is recorded for next time. A refresh rewrites
+    `references/`, keeps a `SKILL.md` you have edited while refreshing its
+    reference table in place, and reports what was added, changed or removed. If
+    the scope changed, update the description to match — a description that
+    still claims a section was excluded after you added it back is worse than no
+    description.
+11. Pages that failed after their retry are listed in the output and recorded in
+    `references/sources.json`. Name them to the user rather than letting the
+    skill look complete, and note that `--refresh` will try them again.
 
 ### URL summarization
 
