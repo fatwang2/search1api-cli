@@ -123,34 +123,39 @@ s1 sitemap https://example.com
 Turn a URL into an installable Agent Skill directory.
 
 ```bash
-s1 learn https://example.com/guide              # one page, 1 credit
-s1 learn https://example.com/docs --site        # the site, ~1 credit per page
-s1 learn https://example.com/docs --site --max-pages 40
-s1 learn https://example.com/docs --site --depth 2   # follow links the sitemap missed
-s1 learn --from <staged dir> --install project  # install what was already learned
+s1 learn https://example.com/guide --name example-setup       # one page, 1 credit
+s1 learn https://example.com/docs --site --discover           # what would be learned, 1 credit
+s1 learn https://example.com/docs --site --name example-api   # crawl and stage
+s1 learn https://example.com/docs --site --exclude /docs/cloud --name example-api
+s1 learn --from <staged dir> --install project                # install, no crawl, no credits
 ```
 
 ```
 <name>/
   SKILL.md                 # routing layer: when to use, what is in references/
   references/*.md          # page content with title/url frontmatter
-  references/sources.json  # source URLs and hashes, so it can be relearned
+  references/sources.json  # source URLs, hashes, and any pages that failed
 ```
 
 | Option | Description | Default |
 |---|---|---|
+| `--name <name>` | **Required.** Name the reusable job, not the source document | |
 | `--site` | Learn the whole site instead of the single page | off |
-| `--max-pages <N>` | Page cap in `--site` mode | 20 |
-| `--depth <N>` | In `--site` mode, also follow links found in the pages learned | 1 |
-| `--name <name>` | Skill directory name | derived from the host |
+| `--discover` | With `--site`: print the section breakdown and stop | off |
+| `--exclude <paths...>` | Path prefixes to leave out | |
+| `--max-pages <N>` | Safety valve, not a knob to tune | 500 |
 | `--out <dir>` | Where to write the directory | staging dir under the cache |
 | `--from <dir>` | Install an already-learned directory instead of crawling | |
 | `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
 | `--json` | Output raw JSON | |
 
+`--site` reads the site's published sitemap in one call, so the page count comes
+from the site rather than from a budget you have to guess. `--discover` shows
+that breakdown before spending anything.
+
 Nothing is installed unless `--install` is passed, and a directory `s1 learn`
 did not create is never overwritten. Relearning the same URL rewrites
-`references/` and keeps a `SKILL.md` you have edited.
+`references/`, reports what changed, and keeps a `SKILL.md` you have edited.
 
 Page content is written straight to disk. The command prints a summary, and
 `--json` lists only `file`, `url`, and `title` per page — so learning a large

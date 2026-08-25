@@ -5,17 +5,17 @@ import { join } from "node:path";
 import test from "node:test";
 
 const {
-  extractLinks,
-  hostSlug,
-  isSectionIndex,
-  renderReferenceTable,
-  spliceReferenceTable,
+  diffAgainstPrevious,
   installStagedSkill,
   isLearnedDirectory,
+  matchesExclude,
   referenceFilename,
   renderReference,
+  renderReferenceTable,
   selectSiteUrls,
-  skillName,
+  spliceReferenceTable,
+  summarizeSections,
+  validateSkillName,
   writeSkillDirectory,
 } = await import("../dist/learn.js");
 
@@ -28,18 +28,22 @@ const PAGES = [
   { url: "https://docs.example.com/guide-start", title: "Guide Start", content: "# Other\n\nworld" },
 ];
 
-test("skill and reference names stay short and collision-free", () => {
-  assert.equal(hostSlug("docs.stripe.com"), "stripe");
-  assert.equal(hostSlug("docs.umami.is"), "umami");
-  assert.equal(hostSlug("www.example.com"), "example");
-  assert.equal(hostSlug("blog.example.com"), "blog-example");
-  assert.equal(hostSlug("docs.dev"), "docs");
-  assert.equal(skillName("https://docs.stripe.com/webhooks", "site"), "stripe");
-  assert.equal(skillName("https://docs.stripe.com/webhooks", "page"), "stripe-webhooks");
-  assert.equal(skillName("https://example.com/", "page"), "example");
+test("skill names are validated, not derived", () => {
+  assert.equal(validateSkillName("umami-analytics"), null);
+  assert.equal(validateSkillName("seo-audit"), null);
+  assert.equal(validateSkillName("s1"), null);
 
+  assert.match(validateSkillName(""), /required/);
+  assert.match(validateSkillName("Umami"), /lowercase kebab-case/);
+  assert.match(validateSkillName("umami_analytics"), /lowercase kebab-case/);
+  assert.match(validateSkillName("-umami"), /lowercase kebab-case/);
+  assert.match(validateSkillName("umami--analytics"), /lowercase kebab-case/);
+  assert.match(validateSkillName("9lives"), /lowercase kebab-case/);
+  assert.match(validateSkillName("a".repeat(65)), /64 characters/);
+});
+
+test("reference filenames come from the path and never collide", () => {
   const taken = new Set();
-  // `/guide/start` and `/guide-start` flatten to the same base name.
   assert.equal(referenceFilename("https://a.test/guide/start", taken), "guide-start.md");
   assert.equal(referenceFilename("https://a.test/guide-start", taken), "guide-start-2.md");
   assert.equal(referenceFilename("https://a.test/", taken), "index.md");
@@ -174,10 +178,9 @@ test("install never overwrites a directory s1 learn did not write", () => {
   assert.throws(() => installStagedSkill(staged, foreign), /Refusing to overwrite/);
 });
 
-test("site selection prefers the requested section and shallower pages", () => {
-  // Within the same depth the site's own sitemap order is kept.
-  const { selected, discovered } = selectSiteUrls(
-    [
+test("site selection orders, excludes, and reports what the cap left out", () => {
+  const selection = selectSiteUrls({
+    links: [
       "https://docs.example.com/other/deep/page",
       "https://docs.example.com/guide/b",
       "https://elsewhere.test/guide/a",
@@ -185,90 +188,95 @@ test("site selection prefers the requested section and shallower pages", () => {
       "https://docs.example.com/guide/a",
       "https://docs.example.com/guide/",
     ],
-    "https://docs.example.com/guide",
-    3
-  );
+    source: "https://docs.example.com/guide",
+    maxPages: 3,
+  });
 
   // off-origin dropped; anchor and trailing slash deduped
-  assert.equal(discovered, 4);
-  assert.deepEqual(selected, [
+  assert.equal(selection.discovered, 4);
+  assert.equal(selection.overCap, 1);
+  assert.deepEqual(selection.urls, [
     "https://docs.example.com/guide",
     "https://docs.example.com/guide/b",
     "https://docs.example.com/guide/a",
   ]);
+
+  const trimmed = selectSiteUrls({
+    links: ["https://d.test/docs/a", "https://d.test/docs/cloud/x", "https://d.test/docs/cloud/y"],
+    source: "https://d.test/docs",
+    exclude: ["/docs/cloud"],
+    maxPages: 50,
+  });
+  assert.equal(trimmed.excluded, 2);
+  assert.deepEqual(trimmed.urls, ["https://d.test/docs", "https://d.test/docs/a"]);
 });
 
-test("the reference table names the path, so repeated titles stay distinct", () => {
-  const table = renderReferenceTable([
-    { file: "references/docs-api.md", url: "https://d.test/docs/api", title: "Overview", hash: "x" },
-    { file: "references/docs-cloud.md", url: "https://d.test/docs/cloud", title: "Overview", hash: "y" },
+test("matchesExclude only matches whole path segments", () => {
+  assert.equal(matchesExclude("https://d.test/docs/cloud", ["/docs/cloud"]), true);
+  assert.equal(matchesExclude("https://d.test/docs/cloud/x", ["docs/cloud"]), true);
+  assert.equal(matchesExclude("https://d.test/docs/cloudy", ["/docs/cloud"]), false);
+  assert.equal(matchesExclude("https://d.test/docs", []), false);
+});
+
+test("sections group below the requested path and roll up lone pages", () => {
+  const sections = summarizeSections(
+    [
+      "https://d.test/docs",
+      "https://d.test/docs/api",
+      "https://d.test/docs/api/auth",
+      "https://d.test/docs/api/websites",
+      "https://d.test/docs/install",
+      "https://d.test/docs/updates",
+    ],
+    "https://d.test/docs"
+  );
+  // /docs/install and /docs/updates are single pages, not sections.
+  // Equal counts tie-break by path, so /docs sorts before /docs/api.
+  assert.deepEqual(sections, [
+    { path: "/docs", count: 3 },
+    { path: "/docs/api", count: 3 },
   ]);
-  assert.match(table, /\| Overview \| \/docs\/api \| \[references\/docs-api\.md\]/);
-  assert.match(table, /\| Overview \| \/docs\/cloud \| \[references\/docs-cloud\.md\]/);
 });
 
-test("an edited SKILL.md keeps its prose but gets a refreshed table", () => {
+test("the refresh diff reports what actually moved", () => {
+  const previous = {
+    version: 1,
+    name: "x",
+    source: "https://d.test/docs",
+    mode: "site",
+    learnedAt: "2026-01-01T00:00:00.000Z",
+    pages: [
+      { file: "references/a.md", url: "https://d.test/a", title: "A", hash: "sha256:1" },
+      { file: "references/b.md", url: "https://d.test/b", title: "B", hash: "sha256:2" },
+      { file: "references/c.md", url: "https://d.test/c", title: "C", hash: "sha256:3" },
+    ],
+  };
+  const diff = diffAgainstPrevious(previous, [
+    { file: "references/a.md", url: "https://d.test/a", title: "A", hash: "sha256:1" },
+    { file: "references/b.md", url: "https://d.test/b", title: "B", hash: "sha256:CHANGED" },
+    { file: "references/d.md", url: "https://d.test/d", title: "D", hash: "sha256:4" },
+  ]);
+
+  assert.deepEqual(diff, {
+    added: ["https://d.test/d"],
+    changed: ["https://d.test/b"],
+    removed: ["https://d.test/c"],
+    unchanged: 1,
+  });
+  assert.equal(diffAgainstPrevious(null, []), null);
+});
+
+test("failed URLs are recorded so the gap is visible", () => {
   const dir = tempDir();
   writeSkillDirectory({
     dir,
     name: "docs-example",
     source: "https://docs.example.com/guide",
     mode: "site",
-    pages: PAGES,
+    pages: [PAGES[0]],
+    failed: ["https://docs.example.com/guide/broken"],
     now: "2026-01-01T00:00:00.000Z",
   });
-
-  const authored = readFileSync(join(dir, "SKILL.md"), "utf-8").replace(
-    /^# docs-example$/m,
-    "# My own heading\n\nProse I wrote by hand."
-  );
-  writeFileSync(join(dir, "SKILL.md"), authored);
-
-  const refreshed = writeSkillDirectory({
-    dir,
-    name: "docs-example",
-    source: "https://docs.example.com/guide",
-    mode: "site",
-    pages: [PAGES[0]],
-    now: "2026-01-02T00:00:00.000Z",
-  });
-
-  assert.equal(refreshed.keptSkillFile, true);
-  assert.equal(refreshed.refreshedTable, true);
-  const after = readFileSync(join(dir, "SKILL.md"), "utf-8");
-  assert.match(after, /Prose I wrote by hand\./);
-  assert.doesNotMatch(after, /guide-start-2\.md/);
-});
-
-test("splicing a table into a file without markers is refused", () => {
-  assert.equal(spliceReferenceTable("no markers here\n", "table"), null);
-});
-
-test("links are pulled out of crawled markdown and kept to the same origin", () => {
-  const markdown = [
-    "See [auth](https://d.test/docs/api/authentication) and",
-    "[relative](/docs/api/websites) and [same page](#top).",
-    "External [repo](https://github.com/x/y), autolink <https://d.test/docs/api/me>,",
-    "duplicate [again](https://d.test/docs/api/authentication).",
-    "Titled [link](https://d.test/docs/api/events \"Events\").",
-  ].join("\n");
-
-  assert.deepEqual(extractLinks(markdown, "https://d.test/docs/api"), [
-    "https://d.test/docs/api/authentication",
-    "https://d.test/docs/api/websites",
-    "https://d.test/docs/api/events",
-    "https://d.test/docs/api/me",
-  ]);
-});
-
-test("a page that links below its own path is a section index", () => {
-  assert.equal(
-    isSectionIndex("https://d.test/docs/api", ["https://d.test/docs/api/authentication"]),
-    true
-  );
-  assert.equal(
-    isSectionIndex("https://d.test/docs/api", ["https://d.test/docs/cloud/api-key"]),
-    false
-  );
-  assert.equal(isSectionIndex("https://d.test/", ["https://d.test/docs"]), false);
+  const sources = JSON.parse(readFileSync(join(dir, "references/sources.json"), "utf-8"));
+  assert.deepEqual(sources.failed, ["https://docs.example.com/guide/broken"]);
 });

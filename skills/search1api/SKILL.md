@@ -153,7 +153,8 @@ Services: github, hackernews.
 ### learn
 
 ```bash
-s1 learn <url> [--site] [--max-pages <N>] [--name <name>] [--out <dir>]
+s1 learn <url> --name <name> [--site] [--exclude <paths...>] [--out <dir>]
+s1 learn <url> --site --discover          # list what would be learned; crawls nothing
 s1 learn --from <dir> --install <global|project>
 ```
 
@@ -163,34 +164,55 @@ Turns a URL into an Agent Skill directory:
 <name>/
   SKILL.md                 # routing layer: when to use, what is in references/
   references/*.md          # page content with title/url frontmatter
-  references/sources.json  # source URLs and hashes, so it can be relearned
+  references/sources.json  # source URLs, hashes, and any pages that failed
 ```
 
 | Option | Description | Default |
 |---|---|---|
+| `--name <name>` | **Required.** You choose it — see naming below | |
 | `--site` | Learn the whole site instead of the single page | off |
-| `--max-pages <N>` | Page cap in `--site` mode | 20 |
-| `--depth <N>` | In `--site` mode, also follow links found in the pages learned | 1 |
-| `--name <name>` | Skill directory name | derived from the host |
-| `--out <dir>` | Where to write it | a staging dir under the cache |
+| `--discover` | With `--site`: print the section breakdown and stop | off |
+| `--exclude <paths...>` | Path prefixes to leave out, e.g. `--exclude /docs/cloud` | |
+| `--max-pages <N>` | Safety valve, not a knob to tune | 500 |
+| `--out <dir>` | Where to write it | staging dir under the cache |
 | `--from <dir>` | Install an already-learned directory (no crawl, no credits) | |
 | `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
 | `--json` | Raw JSON output | |
 
-Cost: a single page is 1 credit. `--site` is 1 credit for link discovery plus 1
-per page crawled, so the default cap is about 21 credits. Nothing is installed
-unless `--install` is passed.
+Cost: 1 credit per page, plus 1 for discovery in `--site` mode. `--discover`
+costs only that 1 and tells you what the full run would cost.
 
-Sitemaps lie. Doc sites routinely omit a whole subtree — umami's sitemap lists
-51 pages and none of its API reference. When the output says pages are linked
-but not included, or when an obvious section is missing from the result, rerun
-with `--depth 2` and a higher `--max-pages`. Depth 2 follows the links in the
-pages it already crawled, and spends one extra credit per section index page to
-recover children the rendered nav hides.
+#### Naming is yours to choose
 
-`SKILL.md` is a deterministic skeleton — no model writes it. Rewrite its
-description and triggers to fit how the user will actually invoke it. Relearning
-the same URL rewrites `references/` and keeps a `SKILL.md` that has been edited.
+`s1 learn` will not invent a name. Name the **reusable job**, not the source
+document: `umami-analytics`, not `docs-umami-is`; `stripe-handle-webhooks`, not
+`stripe-docs`. Lowercase kebab-case, 64 characters or fewer, starting with a
+letter. Reuse the prefix of related skills the user already has (`ls
+~/.agents/skills`) rather than inventing a sibling namespace, and prefer an
+action-object phrase where the skill is about doing something. If a skill with
+that name already exists, compare the *job* — same job means refresh it, a
+different job means pick a narrower name. Never rename an installed skill
+silently.
+
+#### Writing the SKILL.md
+
+The generated `SKILL.md` is a deterministic skeleton — no model writes it.
+Replace the placeholder description with real trigger wording, and turn the
+page list into a task-to-page routing table so the reader knows which file
+answers which question.
+
+**State no fact you have not read.** The routing layer routes: which page covers
+what. The moment you write a concrete claim — a header name, a base URL, a flag,
+a limit — open that reference file first and cite it (`Source:
+references/<file>.md`). Writing API details from memory into a skill whose whole
+purpose is to be sourced is the one failure this command cannot survive.
+
+Everything else stays on disk: `s1 learn` prints a summary, and `--json` lists
+only `file`, `url`, and `title`. Do not read or print `references/` wholesale —
+that is what `crawl` is for.
+
+Relearning the same URL rewrites `references/`, reports what changed, and keeps
+a `SKILL.md` you have edited while refreshing its reference table in place.
 
 ### balance
 
@@ -213,26 +235,29 @@ Shows remaining API credits.
 The user must confirm before anything lands on disk. Never install in the same
 breath as the crawl.
 
-1. Decide the scope. Default to the single page. If the user means a whole site
-   and has not said so explicitly, ask first — it is the difference between
-   1 credit and roughly 21.
-2. Run `s1 learn <url> [--site] --json`. It writes to a staging directory and
-   installs nothing.
-3. Tell the user the skill name, how many pages it captured, and where it is.
-4. Ask where it should go: globally (`~/.agents/skills/`), in this project
-   (`./.agents/skills/`), or leave it staged for now.
-5. Only after they say yes, run
-   `s1 learn --from <staged dir> --install <global|project>`. This re-uses what
-   was already crawled — it costs nothing and makes no further requests.
-6. Offer to sharpen the generated `SKILL.md` description and triggers. An
-   existing directory `s1 learn` did not create is never overwritten.
+1. Decide the scope. Default to the single page. Only use `--site` when the user
+   means the whole site or section.
+2. For a site, run `s1 learn <url> --site --discover --json` first. One credit,
+   no crawling, and it returns the section breakdown and the page count.
+3. Choose a name from what you saw (see naming above) and report the plan: name,
+   sections, page count, and what the crawl will cost.
+4. If a section clearly does not belong — Cloud docs for a self-hosted user,
+   contributor guides for an API consumer — offer `--exclude <path>`. Excluding a
+   section is a decision the user can make from the tree; a page budget is not.
+5. Run `s1 learn <url> --site --name <name> --json`. It writes to a staging
+   directory and installs nothing.
+6. Tell the user what it captured and where it is, then ask: globally
+   (`~/.agents/skills/`), in this project (`./.agents/skills/`), or leave it
+   staged.
+7. Only after they say yes, run
+   `s1 learn --from <staged dir> --install <global|project>`. This costs nothing
+   and makes no further requests.
+8. Author the `SKILL.md` routing layer under the rules above. An existing
+   directory `s1 learn` did not create is never overwritten.
 
-The crawled pages go straight to disk — `s1 learn` prints a summary, and
-`--json` lists only `file`, `url`, and `title`. Keep it that way: work from
-those titles, and do not read or print the files under `references/`. Pulling
-them into the conversation is what `crawl` is for, and it defeats the point of
-learning the URL in the first place. Read a specific reference file only when
-the user asks a question that needs its content right now.
+If pages failed, they are listed in the output and recorded in
+`references/sources.json`. Say which ones, so the user knows what the skill is
+missing rather than assuming it is complete.
 
 ### URL summarization
 

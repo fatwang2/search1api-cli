@@ -33,6 +33,9 @@ export interface Sources {
   mode: LearnMode;
   learnedAt: string;
   pages: SourceEntry[];
+  /** URLs that were selected but could not be crawled, so a refresh can retry
+   *  them and the gap is visible instead of silent. */
+  failed?: string[];
 }
 
 export interface WriteResult {
@@ -41,13 +44,15 @@ export interface WriteResult {
   keptSkillFile: boolean;
   refreshedTable: boolean;
   removed: string[];
+  diff: RefreshDiff | null;
 }
 
-const MAX_NAME_LENGTH = 48;
 const MAX_FILENAME_LENGTH = 80;
+const MAX_NAME_LENGTH = 64;
 const SOURCES_FILE = "references/sources.json";
 const TABLE_START = "<!-- s1:references:start -->";
 const TABLE_END = "<!-- s1:references:end -->";
+const SKILL_NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 export function sanitizeSegment(value: string): string {
   return value
@@ -57,46 +62,20 @@ export function sanitizeSegment(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function truncateName(value: string): string {
-  if (value.length <= MAX_NAME_LENGTH) return value;
-  return value.slice(0, MAX_NAME_LENGTH).replace(/-+[^-]*$/, "") || value.slice(0, MAX_NAME_LENGTH);
-}
-
 /**
- * `docs.umami.is` -> `umami`. The TLD carries no meaning in a skill name, and
- * neither does the subdomain a project parks its docs on.
+ * Names are chosen by the agent, not derived from the host. A name built from
+ * the URL describes the source document; a skill should be named for the job it
+ * does. This only enforces the shape.
  */
-const DOC_SUBDOMAINS = new Set([
-  "docs",
-  "doc",
-  "developer",
-  "developers",
-  "dev",
-  "help",
-  "support",
-  "learn",
-  "wiki",
-  "www",
-]);
-
-export function hostSlug(hostname: string): string {
-  const labels = hostname.split(".").filter(Boolean);
-  const kept = labels.length > 1 ? labels.slice(0, -1) : labels.slice();
-  while (kept.length > 1 && DOC_SUBDOMAINS.has(kept[0])) {
-    kept.shift();
+export function validateSkillName(name: string): string | null {
+  if (!name) return "A skill name is required.";
+  if (name.length > MAX_NAME_LENGTH) {
+    return `A skill name must be ${MAX_NAME_LENGTH} characters or fewer.`;
   }
-  return sanitizeSegment(kept.join("-")) || "site";
-}
-
-export function skillName(url: string, mode: LearnMode): string {
-  const parsed = new URL(url);
-  const host = hostSlug(parsed.hostname);
-  if (mode === "site") return truncateName(host);
-
-  const segments = parsed.pathname.split("/").map(sanitizeSegment).filter(Boolean);
-  const last = segments.at(-1);
-  if (!last || host.split("-").includes(last)) return truncateName(host);
-  return truncateName(`${host}-${last}`);
+  if (!SKILL_NAME_PATTERN.test(name)) {
+    return "A skill name must be lowercase kebab-case: start with a letter, then letters, digits and single hyphens.";
+  }
+  return null;
 }
 
 export function referenceFilename(url: string, taken: Set<string>): string {
@@ -272,9 +251,10 @@ export function writeSkillDirectory(options: {
   source: string;
   mode: LearnMode;
   pages: LearnedPage[];
+  failed?: string[];
   now?: string;
 }): WriteResult {
-  const { dir, name, source, mode, pages } = options;
+  const { dir, name, source, mode, pages, failed = [] } = options;
   const previous = readSources(dir);
   const entries = buildEntries(pages);
 
@@ -305,6 +285,7 @@ export function writeSkillDirectory(options: {
     mode,
     learnedAt: options.now ?? new Date().toISOString(),
     pages: plain,
+    ...(failed.length ? { failed } : {}),
   };
   writeFileSync(join(dir, SOURCES_FILE), `${JSON.stringify(sources, null, 2)}\n`);
 
@@ -323,7 +304,14 @@ export function writeSkillDirectory(options: {
     writeFileSync(skillPath, renderSkillFile({ name, source, mode, entries: plain }));
   }
 
-  return { dir, entries: plain, keptSkillFile, refreshedTable, removed };
+  return {
+    dir,
+    entries: plain,
+    keptSkillFile,
+    refreshedTable,
+    removed,
+    diff: diffAgainstPrevious(previous, plain),
+  };
 }
 
 export function stagingDirectory(name: string): string {
@@ -434,59 +422,114 @@ export function rankUrls(urls: string[], source: string): string[] {
     .map((item) => item.url);
 }
 
-export function selectSiteUrls(
-  links: string[],
-  source: string,
-  limit: number
-): { selected: string[]; discovered: number } {
-  const candidates = normalizeCandidates([source, ...links], source);
-  return {
-    selected: rankUrls(candidates, source).slice(0, Math.max(1, limit)),
-    discovered: candidates.length,
-  };
-}
-
-/**
- * A page whose own text links to children under its path — `/docs/api` linking
- * to `/docs/api/authentication`. Crawling strips the rendered nav, so the text
- * usually names only a couple of them; the page is worth one discovery call to
- * get the rest.
- */
-export function isSectionIndex(pageUrl: string, links: string[]): boolean {
-  let base: string;
+/** Glob-ish path prefix match: `--exclude /docs/cloud` drops the section. */
+export function matchesExclude(url: string, patterns: string[]): boolean {
+  if (!patterns.length) return false;
+  let path: string;
   try {
-    base = new URL(pageUrl).pathname.replace(/\/+$/, "");
+    path = new URL(url).pathname.replace(/\/+$/, "");
   } catch {
     return false;
   }
-  if (!base) return false;
-  return links.some((link) => {
-    try {
-      return new URL(link).pathname.startsWith(`${base}/`);
-    } catch {
-      return false;
-    }
+  return patterns.some((raw) => {
+    const pattern = `/${raw.trim().replace(/^\/+|\/+$/g, "")}`;
+    if (pattern === "/") return false;
+    return path === pattern || path.startsWith(`${pattern}/`);
   });
 }
 
+export interface SiteSelection {
+  urls: string[];
+  discovered: number;
+  excluded: number;
+  overCap: number;
+}
+
 /**
- * Links in already-crawled markdown. Sitemaps routinely omit whole subtrees —
- * umami's lists 51 pages and none of its API reference — but the section index
- * we just paid to crawl links to them, so following those costs no discovery.
+ * `/sitemap` now returns what the site publishes, so selection is ordering and
+ * exclusion — not the multi-round link chasing this used to need.
  */
-export function extractLinks(markdown: string, pageUrl: string): string[] {
-  const found: string[] = [];
-  const inline = /\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)/g;
-  const autolink = /<((?:https?:)\/\/[^\s>]+)>/g;
-  for (const pattern of [inline, autolink]) {
-    let match = pattern.exec(markdown);
-    while (match !== null) {
-      const href = match[1];
-      if (href && !href.startsWith("#") && !href.startsWith("mailto:")) {
-        found.push(href);
-      }
-      match = pattern.exec(markdown);
-    }
+export function selectSiteUrls(options: {
+  links: string[];
+  source: string;
+  exclude?: string[];
+  maxPages: number;
+}): SiteSelection {
+  const { links, source, exclude = [], maxPages } = options;
+  const candidates = normalizeCandidates([source, ...links], source);
+  const kept = candidates.filter((url) => !matchesExclude(url, exclude));
+  const ranked = rankUrls(kept, source);
+  return {
+    urls: ranked.slice(0, Math.max(1, maxPages)),
+    discovered: candidates.length,
+    excluded: candidates.length - kept.length,
+    overCap: Math.max(0, ranked.length - Math.max(1, maxPages)),
+  };
+}
+
+export interface Section {
+  path: string;
+  count: number;
+}
+
+/**
+ * Group the selection one level below the requested path so the agent can see
+ * the shape of the site — and exclude a whole section — before anything is
+ * crawled.
+ */
+export function summarizeSections(urls: string[], source: string): Section[] {
+  const prefix = new URL(source).pathname.replace(/\/+$/, "") || "/";
+  const depth = prefix.split("/").filter(Boolean).length;
+  const counts = new Map<string, number>();
+
+  for (const url of urls) {
+    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    const key = segments.length > depth ? `/${segments.slice(0, depth + 1).join("/")}` : prefix;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  return normalizeCandidates(found, pageUrl);
+
+  // A lone page is not a section. Roll singletons up into the requested path,
+  // otherwise a flat doc site reports fifty "sections" of one page each.
+  let rolledUp = 0;
+  const sections: Section[] = [];
+  for (const [path, count] of counts) {
+    if (path !== prefix && count < 2) rolledUp += count;
+    else sections.push({ path, count });
+  }
+  if (rolledUp > 0) {
+    const existing = sections.find((section) => section.path === prefix);
+    if (existing) existing.count += rolledUp;
+    else sections.push({ path: prefix, count: rolledUp });
+  }
+
+  return sections.sort((a, b) => b.count - a.count || a.path.localeCompare(b.path));
+}
+
+export interface RefreshDiff {
+  added: string[];
+  changed: string[];
+  removed: string[];
+  unchanged: number;
+}
+
+/** What moved since the last run, from hashes we already compute. */
+export function diffAgainstPrevious(
+  previous: Sources | null,
+  entries: SourceEntry[]
+): RefreshDiff | null {
+  if (!previous) return null;
+  const before = new Map(previous.pages.map((page) => [page.url, page.hash]));
+  const added: string[] = [];
+  const changed: string[] = [];
+  let unchanged = 0;
+
+  for (const entry of entries) {
+    const hash = before.get(entry.url);
+    if (hash === undefined) added.push(entry.url);
+    else if (hash !== entry.hash) changed.push(entry.url);
+    else unchanged += 1;
+    before.delete(entry.url);
+  }
+
+  return { added, changed, removed: [...before.keys()], unchanged };
 }
