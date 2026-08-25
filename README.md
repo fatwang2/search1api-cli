@@ -142,7 +142,7 @@ s1 learn --validate ~/.agents/skills/example-api              # static checks, e
 
 | Option | Description | Default |
 |---|---|---|
-| `--name <name>` | **Required.** Name the reusable job, not the source document | |
+| `--name <name>` | **Required.** You choose it; the CLI never derives one | |
 | `--site` | Learn everything under the URL's path, not just that page | off |
 | `--discover` | With `--site`: print the section breakdown and stop | off |
 | `--exclude <paths...>` | Path prefixes to leave out | |
@@ -168,9 +168,39 @@ Nothing is installed unless `--install` is passed, and a directory `s1 learn`
 did not create is never overwritten. Relearning the same URL rewrites
 `references/`, reports what changed, and keeps a `SKILL.md` you have edited.
 
+Installing writes the skill to the store (`~/.agents/skills/<name>`) **and links
+it into the agent directories that already exist beside it** — `.claude/skills`,
+`.cursor/skills`, `.codex/skills` — because agents read their own directory, not
+the store. The output names every link it made, and says so when it found none:
+
+```
+$ s1 learn --from ~/.cache/search1api/learn/example-api --install global
+example-api installed to /Users/you/.agents/skills/example-api
+Linked into /Users/you/.claude/skills/example-api, /Users/you/.codex/skills/example-api
+```
+
+It never creates a directory for a tool you have not set up, and never replaces
+an entry that is already there.
+
+**A freshly learned skill is not usable yet.** `s1 learn` writes a placeholder
+description, and an agent will not select a skill that still carries it — the
+command says so when it finishes, and `--validate` fails with a non-zero exit:
+
+```
+$ s1 learn --validate ~/.agents/skills/example-api
+error  SKILL.md still has the generated description, so this skill will not trigger.
+```
+
+Rewrite the description to name the topics the skill answers, and turn the
+generated page list into a routing table, before calling it done.
+
 `--name` on install renames the folder, the frontmatter and `sources.json`
 together, so you can learn under a working name and settle on the real one after
-reading the page titles.
+reading what the pages actually contain.
+
+`--exclude` drops whole path prefixes, but a section is not automatically one
+thing: umami's `/docs/guides` holds 21 hosting guides and 11 core how-tos.
+Point `--discover` at a section before excluding it.
 
 Page content is written straight to disk. The command prints a summary, and
 `--json` lists only `file`, `url`, and `title` per page — so learning a large
