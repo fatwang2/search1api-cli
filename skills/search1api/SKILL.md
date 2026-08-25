@@ -217,37 +217,39 @@ you if the body still mentions the old name.
 
 #### Naming is yours to choose
 
-`s1 learn` will not invent a name. Name the **reusable job**, not the source
-document: `stripe-handle-webhooks`, not `stripe-docs`. Lowercase kebab-case, 64
-characters or fewer, starting with a letter. Reuse the prefix of related skills
-the user already has (`ls ~/.agents/skills`) rather than inventing a sibling
-namespace, and prefer an action-object phrase where the skill is about doing
-something.
+`s1 learn` will not invent a name — it has only the URL, which is the one thing
+that should not decide the name.
 
-A whole documentation set is usually one job at the level that matters — "work
-with this product" — so a product-shaped name such as `umami-analytics` or
-`hono-build-api` is the right answer, not a fallback. Reach for a narrower name
-only when you deliberately learned a narrower scope. If a skill with
-that name already exists, compare the *job* — same job means refresh it, a
-different job means pick a narrower name. Never rename an installed skill
-silently.
+The hard rules are just the shape: lowercase kebab-case, 64 characters or fewer,
+starting with a letter, and the folder basename must equal the frontmatter
+`name`. `--validate` checks those.
+
+Everything else is judgement, and the user's judgement wins. Reuse the prefix of
+related skills they already have (`ls ~/.agents/skills`). Think about what else
+might live alongside it: `umami-docs` is a good name precisely when a separate
+skill about analytics practice could exist for the same product, and
+`hono-build-api` is a good name when nothing else will. Ask the user if two
+readings are both defensible — they know what their skill library looks like.
 
 #### Writing the SKILL.md
 
 The generated `SKILL.md` is a deterministic skeleton — no model writes it.
-Replace the placeholder description with real trigger wording, and turn the
-page list into a task-to-page routing table so the reader knows which file
-answers which question.
+Replace the placeholder description with real trigger wording, and turn the page
+list into a task-to-page routing table so the reader knows which file answers
+which question. Until that description is rewritten the skill will not be
+selected by an agent, and `--validate` fails on it.
 
-**State no fact you have not read.** The routing layer routes: which page covers
-what. The moment you write a concrete claim — a header name, a base URL, a flag,
-a limit — open that reference file first and cite it (`Source:
-references/<file>.md`). Writing API details from memory into a skill whose whole
-purpose is to be sourced is the one failure this command cannot survive.
+**Read the pages you need.** Deciding what a section contains, what to exclude,
+what to call the skill, and what to put in the routing table all require knowing
+what is actually in the files — the URLs alone will mislead you. What to avoid
+is dumping the corpus into the conversation: read the pages that inform a
+decision, not all of them.
 
-Everything else stays on disk: `s1 learn` prints a summary, and `--json` lists
-only `file`, `url`, and `title`. Do not read or print `references/` wholesale —
-that is what `crawl` is for.
+**State no fact you have not read.** The moment you write a concrete claim — a
+header name, a base URL, a flag, a limit — open that reference file first and
+cite it (`Source: references/<file>.md`). Writing API details from memory into a
+skill whose whole purpose is to be sourced is the one failure this command
+cannot survive.
 
 Relearning the same URL rewrites `references/`, reports what changed, and keeps
 a `SKILL.md` you have edited while refreshing its reference table in place.
@@ -279,13 +281,18 @@ breath as the crawl.
    nothing and returns the section breakdown and the page count.
 3. Choose a name from what you saw (see naming above) and report the plan: name,
    sections, and page count.
-4. Ask which flavour applies before excluding anything, because most doc sets
-   carry a section that is dead weight for half their readers. The usual splits:
-   hosted versus self-hosted (`/docs/cloud`), one platform's deploy guide out of
-   twenty, contributor and governance pages, changelogs. Name the candidates you
-   can see in the tree and let the user pick — excluding a whole section is a
-   decision they can make from paths alone. Do not go finer than a section: which
-   individual pages belong together is not knowable until they are crawled.
+4. Decide what to leave out, and check before you do. Most doc sets carry a
+   section that is dead weight for half their readers — hosted versus
+   self-hosted, one platform's deploy guide out of twenty, contributor and
+   governance pages, changelogs. Ask the user which flavour applies.
+   **A section is not automatically homogeneous.** Before excluding one, look
+   inside it: `s1 learn <url-of-that-section> --site --discover` lists what it
+   holds. umami's `/docs/guides` is 33 pages of which 21 are hosting guides and
+   11 are core how-tos for tracking outbound links, form submissions, SPAs and
+   server-side events — excluding the section wholesale silently drops those.
+   When a section is mixed, either keep it or exclude the individual pages.
+   Whatever you exclude, say so in the description, so the skill declares its
+   own gaps.
 5. Run `s1 learn <url> --site --name <name> --json`. It writes to a staging
    directory and installs nothing.
 6. Tell the user what it captured and where it is, then ask: globally
