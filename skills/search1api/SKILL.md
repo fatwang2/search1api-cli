@@ -77,8 +77,8 @@ These look similar and are not:
 - "Learn this URL", "make a skill out of these docs", "记住这个文档" → **`learn`**.
   Produces an installable skill directory the user's agent can load later.
 - Only add **`--site`** when the user clearly means the whole site or section
-  ("learn the whole docs", "整站"). Scope is a billing decision — 1 credit for a
-  page, roughly `1 + pages` for a site — so when it is unclear, ask before running.
+  ("learn the whole docs", "整站"). When the scope is unclear, run `--discover`
+  first and show the user what a full run would cover.
 
 ## Dynamic tuning
 
@@ -170,23 +170,30 @@ Turns a URL into an Agent Skill directory:
 | Option | Description | Default |
 |---|---|---|
 | `--name <name>` | **Required.** You choose it — see naming below | |
-| `--site` | Learn the whole site instead of the single page | off |
+| `--site` | Learn everything under the URL's path, not just that page | off |
 | `--discover` | With `--site`: print the section breakdown and stop | off |
 | `--exclude <paths...>` | Path prefixes to leave out, e.g. `--exclude /docs/cloud` | |
 | `--max-pages <N>` | Safety valve, not a knob to tune | 500 |
 | `--out <dir>` | Where to write it | staging dir under the cache |
-| `--from <dir>` | Install an already-learned directory (no crawl, no credits) | |
+| `--from <dir>` | Install an already-learned directory (no crawl) | |
 | `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
 | `--json` | Raw JSON output | |
 
-Cost: 1 credit per page, plus 1 for discovery in `--site` mode. `--discover`
-costs only that 1 and tells you what the full run would cost.
+`--site` learns what lives **under the URL you point at**: the docs root gets
+the whole set, `/docs/api` gets just that section. That is how you produce a
+family of skills instead of one broad one — point at each section in turn.
+
+`--discover` crawls nothing; it only reads what the site publishes, so use it
+to size a job before running it.
 
 #### Naming is yours to choose
 
 `s1 learn` will not invent a name. Name the **reusable job**, not the source
-document: `umami-analytics`, not `docs-umami-is`; `stripe-handle-webhooks`, not
-`stripe-docs`. Lowercase kebab-case, 64 characters or fewer, starting with a
+document: `stripe-handle-webhooks`, not `stripe-docs`. A name that restates the
+product is barely better than the domain — if the only name you can think of is
+the product itself, the bundle probably covers several jobs and should be split.
+Point `--site` at each section and learn them as a family under one prefix:
+`umami-self-host`, `umami-track-events`, `umami-query-api`. Lowercase kebab-case, 64 characters or fewer, starting with a
 letter. Reuse the prefix of related skills the user already has (`ls
 ~/.agents/skills`) rather than inventing a sibling namespace, and prefer an
 action-object phrase where the skill is about doing something. If a skill with
@@ -237,10 +244,10 @@ breath as the crawl.
 
 1. Decide the scope. Default to the single page. Only use `--site` when the user
    means the whole site or section.
-2. For a site, run `s1 learn <url> --site --discover --json` first. One credit,
-   no crawling, and it returns the section breakdown and the page count.
+2. For a site, run `s1 learn <url> --site --discover --json` first. It crawls
+   nothing and returns the section breakdown and the page count.
 3. Choose a name from what you saw (see naming above) and report the plan: name,
-   sections, page count, and what the crawl will cost.
+   sections, and page count.
 4. If a section clearly does not belong — Cloud docs for a self-hosted user,
    contributor guides for an API consumer — offer `--exclude <path>`. Excluding a
    section is a decision the user can make from the tree; a page budget is not.
@@ -250,8 +257,8 @@ breath as the crawl.
    (`~/.agents/skills/`), in this project (`./.agents/skills/`), or leave it
    staged.
 7. Only after they say yes, run
-   `s1 learn --from <staged dir> --install <global|project>`. This costs nothing
-   and makes no further requests.
+   `s1 learn --from <staged dir> --install <global|project>`. It makes no
+   further requests.
 8. Author the `SKILL.md` routing layer under the rules above. An existing
    directory `s1 learn` did not create is never overwritten.
 

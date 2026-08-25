@@ -94,19 +94,17 @@ async function discoverSite(
   maxPages: number,
   log: (message: string) => void
 ) {
-  let credits = 1;
   const links = (await sitemap(url, { type: "sitemap" })).links ?? [];
   let selection = selectSiteUrls({ links, source: url, exclude, maxPages });
 
   // A site that publishes no sitemap falls back to the links on the page.
   if (selection.discovered <= 1) {
-    log(chalk.dim("This site publishes no sitemap; following the links on the page instead (+1 credit)."));
-    credits += 1;
+    log(chalk.dim("This site publishes no sitemap; following the links on the page instead."));
     const fallback = (await sitemap(url, { type: "all" })).links ?? [];
     selection = selectSiteUrls({ links: fallback, source: url, exclude, maxPages });
   }
 
-  return { selection, credits, sections: summarizeSections(selection.urls, url) };
+  return { selection, sections: summarizeSections(selection.urls, url) };
 }
 
 function reportDiff(diff: RefreshDiff | null): void {
@@ -160,7 +158,7 @@ export function registerLearnCommand(program: Command): void {
         const target = installDirectory(scope, name);
         const { keptSkillFile, refreshedTable } = installStagedSkill(source, target);
         if (opts.json) {
-          printJson({ name, dir: target, installed: scope, keptSkillFile, refreshedTable, credits: 0 });
+          printJson({ name, dir: target, installed: scope, keptSkillFile, refreshedTable });
         } else {
           console.log(`${chalk.bold.blue(name)} installed to ${target}`);
           if (keptSkillFile) {
@@ -182,12 +180,12 @@ export function registerLearnCommand(program: Command): void {
         throw new Error("--max-pages must be a positive integer.");
       }
 
-      // Discovery is one call and costs one credit; look before naming.
+      // Discovery is a single call and crawls nothing; look before naming.
       if (opts.discover) {
         if (!opts.site) throw new Error("--discover applies to --site.");
-        const { selection, credits, sections } = await discoverSite(target, exclude, maxPages, log);
+        const { selection, sections } = await discoverSite(target, exclude, maxPages, log);
         if (opts.json) {
-          printJson({ source: target, credits, ...selection, sections });
+          printJson({ source: target, ...selection, sections });
           return;
         }
         console.log(`${chalk.bold.blue(new URL(target).hostname)} — ${selection.urls.length} page(s) would be learned`);
@@ -198,7 +196,7 @@ export function registerLearnCommand(program: Command): void {
         if (selection.overCap) {
           console.log(chalk.yellow(`${selection.overCap} more page(s) exceed --max-pages ${maxPages} and would be left out.`));
         }
-        console.log(chalk.dim(`\nCrawling these costs about ${selection.urls.length} credits. Choose a name and rerun without --discover.`));
+        console.log(chalk.dim("\nChoose a name and rerun without --discover to learn these."));
         return;
       }
 
@@ -213,14 +211,12 @@ export function registerLearnCommand(program: Command): void {
 
       let pages: LearnedPage[];
       let failed: string[] = [];
-      let credits: number;
       let overCap = 0;
       let excluded = 0;
 
       if (mode === "site") {
         const discovery = await discoverSite(target, exclude, maxPages, log);
         const { selection, sections } = discovery;
-        credits = discovery.credits + selection.urls.length;
         overCap = selection.overCap;
         excluded = selection.excluded;
         log(
@@ -237,7 +233,6 @@ export function registerLearnCommand(program: Command): void {
         pages = crawled.pages;
         failed = crawled.failed;
       } else {
-        credits = 1;
         const page = pageFromResponse(await crawl(target), target);
         if (!page) throw new Error(`Crawling ${target} returned no content.`);
         pages = [page];
@@ -273,7 +268,6 @@ export function registerLearnCommand(program: Command): void {
           dir: installedTo ?? dir,
           staged: dir,
           installed: scope ?? null,
-          credits,
           excluded,
           overCap,
           keptSkillFile: written.keptSkillFile || installKeptSkill,
@@ -286,8 +280,7 @@ export function registerLearnCommand(program: Command): void {
       }
 
       const pageWord = pages.length === 1 ? "page" : "pages";
-      const creditWord = credits === 1 ? "credit" : "credits";
-      console.log(`${chalk.bold.blue(name!)} — ${pages.length} ${pageWord}, ~${credits} ${creditWord}`);
+      console.log(`${chalk.bold.blue(name!)} — ${pages.length} ${pageWord}`);
       console.log(chalk.dim(installedTo ?? dir));
       reportDiff(written.diff);
       if (written.keptSkillFile || installKeptSkill) {

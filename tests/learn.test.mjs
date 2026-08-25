@@ -178,7 +178,7 @@ test("install never overwrites a directory s1 learn did not write", () => {
   assert.throws(() => installStagedSkill(staged, foreign), /Refusing to overwrite/);
 });
 
-test("site selection orders, excludes, and reports what the cap left out", () => {
+test("site selection scopes to the path you pointed at", () => {
   const selection = selectSiteUrls({
     links: [
       "https://docs.example.com/other/deep/page",
@@ -189,17 +189,24 @@ test("site selection orders, excludes, and reports what the cap left out", () =>
       "https://docs.example.com/guide/",
     ],
     source: "https://docs.example.com/guide",
-    maxPages: 3,
+    maxPages: 2,
   });
 
-  // off-origin dropped; anchor and trailing slash deduped
-  assert.equal(selection.discovered, 4);
+  // off-origin dropped, /other dropped, anchor and trailing slash deduped
+  assert.equal(selection.discovered, 3);
   assert.equal(selection.overCap, 1);
   assert.deepEqual(selection.urls, [
     "https://docs.example.com/guide",
     "https://docs.example.com/guide/b",
-    "https://docs.example.com/guide/a",
   ]);
+
+  // Pointing at the root keeps everything on the host.
+  const whole = selectSiteUrls({
+    links: ["https://docs.example.com/other/deep/page", "https://docs.example.com/guide/a"],
+    source: "https://docs.example.com/",
+    maxPages: 50,
+  });
+  assert.equal(whole.discovered, 3);
 
   const trimmed = selectSiteUrls({
     links: ["https://d.test/docs/a", "https://d.test/docs/cloud/x", "https://d.test/docs/cloud/y"],

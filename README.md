@@ -123,11 +123,11 @@ s1 sitemap https://example.com
 Turn a URL into an installable Agent Skill directory.
 
 ```bash
-s1 learn https://example.com/guide --name example-setup       # one page, 1 credit
-s1 learn https://example.com/docs --site --discover           # what would be learned, 1 credit
+s1 learn https://example.com/guide --name example-setup       # one page
+s1 learn https://example.com/docs --site --discover           # what would be learned, crawls nothing
 s1 learn https://example.com/docs --site --name example-api   # crawl and stage
 s1 learn https://example.com/docs --site --exclude /docs/cloud --name example-api
-s1 learn --from <staged dir> --install project                # install, no crawl, no credits
+s1 learn --from <staged dir> --install project                # install, no crawl
 ```
 
 ```
@@ -140,7 +140,7 @@ s1 learn --from <staged dir> --install project                # install, no craw
 | Option | Description | Default |
 |---|---|---|
 | `--name <name>` | **Required.** Name the reusable job, not the source document | |
-| `--site` | Learn the whole site instead of the single page | off |
+| `--site` | Learn everything under the URL's path, not just that page | off |
 | `--discover` | With `--site`: print the section breakdown and stop | off |
 | `--exclude <paths...>` | Path prefixes to leave out | |
 | `--max-pages <N>` | Safety valve, not a knob to tune | 500 |
@@ -149,9 +149,10 @@ s1 learn --from <staged dir> --install project                # install, no craw
 | `--install <scope>` | `global` (`~/.agents/skills/`) or `project` (`./.agents/skills/`) | not installed |
 | `--json` | Output raw JSON | |
 
-`--site` reads the site's published sitemap in one call, so the page count comes
-from the site rather than from a budget you have to guess. `--discover` shows
-that breakdown before spending anything.
+`--site` reads the site's published sitemap in one call and keeps what lives
+under the URL you pointed at — the docs root gets everything, `/docs/api` gets
+just that section — so the page count comes from the site rather than from a
+budget you have to guess. `--discover` shows that breakdown first.
 
 Nothing is installed unless `--install` is passed, and a directory `s1 learn`
 did not create is never overwritten. Relearning the same URL rewrites

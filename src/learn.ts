@@ -422,19 +422,24 @@ export function rankUrls(urls: string[], source: string): string[] {
     .map((item) => item.url);
 }
 
-/** Glob-ish path prefix match: `--exclude /docs/cloud` drops the section. */
-export function matchesExclude(url: string, patterns: string[]): boolean {
-  if (!patterns.length) return false;
+/** Whole-segment prefix match, so `/docs/cloud` never matches `/docs/cloudy`. */
+export function isUnderPath(url: string, prefix: string): boolean {
+  const normalized = `/${prefix.trim().replace(/^\/+|\/+$/g, "")}`;
+  if (normalized === "/") return true;
   let path: string;
   try {
     path = new URL(url).pathname.replace(/\/+$/, "");
   } catch {
     return false;
   }
-  return patterns.some((raw) => {
-    const pattern = `/${raw.trim().replace(/^\/+|\/+$/g, "")}`;
-    if (pattern === "/") return false;
-    return path === pattern || path.startsWith(`${pattern}/`);
+  return path === normalized || path.startsWith(`${normalized}/`);
+}
+
+/** `--exclude /docs/cloud` drops that section. */
+export function matchesExclude(url: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => {
+    const normalized = `/${pattern.trim().replace(/^\/+|\/+$/g, "")}`;
+    return normalized !== "/" && isUnderPath(url, normalized);
   });
 }
 
@@ -456,7 +461,12 @@ export function selectSiteUrls(options: {
   maxPages: number;
 }): SiteSelection {
   const { links, source, exclude = [], maxPages } = options;
-  const candidates = normalizeCandidates([source, ...links], source);
+  // `--site` means the site under the URL you pointed at. Point at the docs
+  // root for the whole site, or at a section to learn just that section.
+  const scope = new URL(source).pathname;
+  const candidates = normalizeCandidates([source, ...links], source).filter((url) =>
+    isUnderPath(url, scope)
+  );
   const kept = candidates.filter((url) => !matchesExclude(url, exclude));
   const ranked = rankUrls(kept, source);
   return {
@@ -484,7 +494,10 @@ export function summarizeSections(urls: string[], source: string): Section[] {
 
   for (const url of urls) {
     const segments = new URL(url).pathname.split("/").filter(Boolean);
-    const key = segments.length > depth ? `/${segments.slice(0, depth + 1).join("/")}` : prefix;
+    const key =
+      isUnderPath(url, prefix) && segments.length > depth
+        ? `/${segments.slice(0, depth + 1).join("/")}`
+        : prefix;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 

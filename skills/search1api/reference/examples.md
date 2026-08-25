@@ -117,17 +117,17 @@ s1 balance --json
 One page, staged but not installed:
 
 ```bash
-s1 learn https://example.com/guide --json
+s1 learn https://example.com/guide --name example-setup --json
 ```
 
-A doc site, capped at 30 pages (about 31 credits):
+A doc site, minus a section that does not apply:
 
 ```bash
-s1 learn https://example.com/docs --site --max-pages 30 --json
+s1 learn https://example.com/docs --site --exclude /docs/cloud --name example-api --json
 ```
 
-After the user confirms where it should go — this makes no requests and costs
-nothing, because the pages were already crawled above:
+After the user confirms where it should go — this makes no requests, because the
+pages were already crawled above:
 
 ```bash
 s1 learn --from ~/.cache/search1api/learn/example --install project
